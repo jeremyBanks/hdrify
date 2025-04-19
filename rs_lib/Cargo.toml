@@ -8,6 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.98"
+flate2 = "1.0"
 image = "0.25.6"
 js-sys = "0.3"
 png = "0.17.16"
