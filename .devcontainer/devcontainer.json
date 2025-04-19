@@ -5,6 +5,8 @@
 		"ghcr.io/devcontainers-community/features/deno:1": {}
 	},
 
+	"forwardPorts": [8344],
+
 	"customizations": {
 		"vscode": {
 			"extensions": [

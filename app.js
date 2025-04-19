@@ -1,5 +1,9 @@
 import * as ImageMagick from 'https://esm.run/@imagemagick/magick-wasm';
 
+import { hdrify_png, instantiate as instantiate_wasm } from "./lib/rs_lib.generated.js";
+
+instantiate_wasm();
+
 // DOM Elements
 const elements = {
   fileInput: document.getElementById('file-input'),
@@ -136,7 +140,22 @@ const ImageProcessor = {
       const file = elements.fileInput.files[0];
       const arrayBuffer = await file.arrayBuffer();
       const inputImageData = new Uint8Array(arrayBuffer);
+
       const mode = this.getSelectedMode();
+
+      if (mode === 'rusty'){
+        const outputData = hdrify_png(inputImageData);
+
+        const blob = new Blob([outputData], { type: 'image/png' });
+        const url = URL.createObjectURL(blob);
+
+        UI.displayOutputImage(url, file.name, mode);
+        elements.processBtn.disabled = false;
+        UI.hideSpinner();
+
+        return;
+      }
+
       const readSettings = new ImageMagick.MagickReadSettings();
 
       // Apply mode-specific settings
