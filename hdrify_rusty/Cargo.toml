@@ -1,5 +1,5 @@
 [package]
-name = "rs_lib"
+name = "hdrify_rusty"
 version = "0.0.0"
 edition = "2021"
 

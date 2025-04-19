@@ -3,8 +3,8 @@
     "wasmbuild": ""
   },
   "tasks": {
-    "build": "deno run --allow-all jsr:@deno/wasmbuild@0.17.3 build --sync",
-    "watch": "deno run --watch=./rs_lib/ --allow-all jsr:@deno/wasmbuild@0.17.3 build --sync",
+    "build": "deno run --allow-all jsr:@deno/wasmbuild@0.17.3 build --sync --out ./build/",
+    "watch": "deno run --watch=./hdrify_rusty/ --allow-all jsr:@deno/wasmbuild@0.17.3 build --sync --out ./build/",
     "start": "deno task build && deno run --allow-net --allow-read jsr:@std/http/file-server --port 8344"
   }
 }

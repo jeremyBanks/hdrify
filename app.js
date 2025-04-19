@@ -1,7 +1,6 @@
 import * as ImageMagick from 'https://esm.run/@imagemagick/magick-wasm';
 
-import { hdrify_png, instantiate as instantiate_wasm } from "./lib/rs_lib.generated.js";
-
+import { hdrify_png, instantiate as instantiate_wasm } from "./build/rs_lib.generated.js";
 instantiate_wasm();
 
 // DOM Elements
