@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use js_sys::Uint8Array;
 use png::chunk::ChunkType;
-use png::{Decoder, Encoder};
+use png::{Decoder, Encoder, ScaledFloat, SourceChromaticities};
 use qcms::{CIE_xyY, CIE_xyYTRIPLE, Profile};
 use wasm_bindgen::prelude::*;
 
@@ -28,35 +28,10 @@ pub fn hdrify_png(original: Uint8Array) -> Result<Uint8Array, String> {
 
         reader.next_frame(&mut buffer)?;
 
-        let _chaos_icc_profile = include_bytes!("../../chaos.icc");
+        let chaos_icc_profile = include_bytes!("../../chaos.icc");
         let _sane_icc_profile = include_bytes!("../../sane.icc");
-        let rusty_icc_profile = Profile::new_rgb_with_table(
-            CIE_xyY {
-                x: 0.0,
-                y: 1.0,
-                Y: 0.0,
-            },
-            CIE_xyYTRIPLE {
-                red: CIE_xyY {
-                    x: 0.5,
-                    y: 0.5,
-                    Y: 0.0,
-                },
-                green: CIE_xyY {
-                    x: 0.0,
-                    y: 0.5,
-                    Y: 0.0,
-                },
-                blue: CIE_xyY {
-                    x: 0.0,
-                    y: 0.5,
-                    Y: 0.5,
-                },
-            },
-            &[1],
-        );
 
-        let icc_profile = rusty_icc_profile;
+        let icc_profile = chaos_icc_profile.to_vec();
 
         let mut output = Vec::new();
         {
@@ -67,11 +42,20 @@ pub fn hdrify_png(original: Uint8Array) -> Result<Uint8Array, String> {
             encoder.set_color(color_type);
             encoder.set_depth(bit_depth);
 
+            encoder.set_source_chromaticities(SourceChromaticities {
+                red: (ScaledFloat::new(1.64), ScaledFloat::new(1.33)),
+                green: (ScaledFloat::new(1.30), ScaledFloat::new(1.60)),
+                blue: (ScaledFloat::new(1.15), ScaledFloat::new(1.06)),
+                white: (ScaledFloat::new(0.0), ScaledFloat::new(0.0)),
+            });
+
+            encoder.set_source_gamma(ScaledFloat::new(0.99));
+
             // Write the header
             let mut writer = encoder.write_header()?;
 
-            let iccp_type = ChunkType(*b"iCCP");
-            writer.write_chunk(iccp_type, &create_iccp_chunk_data(&icc_profile)?)?;
+            // let iccp_type = ChunkType(*b"iCCP");
+            // writer.write_chunk(iccp_type, &create_iccp_chunk_data(&icc_profile)?)?;
 
             // Write the image data
             writer.write_image_data(&buffer)?;
