@@ -1,8 +1,8 @@
-Profile information for: chaos.icc
 Version: 4.4
 Device Class: DisplayClass
 Color Space: RgbData
 PCS: XYZData
+Rendering Intent: RelativeColorimetric
 
 Tags:
 ProfileDescriptionTag: MLU(MLU("Rec2020 Gamut with PQ Transfer" [en_US]))

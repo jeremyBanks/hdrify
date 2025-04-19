@@ -11,13 +11,19 @@ fn main() -> Result<(), Error> {
     profile.write_tag(
         TagSignature::LuminanceTag,
         Tag::CIEXYZ(&CIEXYZ {
-            X: 9505.0,
-            Y: 10000.0,
-            Z: 10896.0,
+            X: 0.0,
+            Y: 32_767.0,
+            Z: 0.0,
         }),
     );
 
-    profile.save_profile_to_file(&Path::new("../rusty.icc"))?;
+    profile.set_version(0.1);
+    profile.remove_tag(TagSignature::CopyrightTag);
+    profile.remove_tag(TagSignature::ProfileDescriptionTag);
+    profile.remove_tag(TagSignature::CicpTag);
+
+    let bytes = profile.icc()?;
+    fs::write("../rusty.icc", bytes)?;
 
     let parent_dir = Path::new("..").canonicalize()?;
     for entry in fs::read_dir(&parent_dir)? {
@@ -42,11 +48,15 @@ fn process_icc_file(path: &Path) -> Result<(), Error> {
     let output_path = path.with_file_name(format!("{}.txt", filename));
 
     let mut human_readable = String::new();
-    writeln!(human_readable, "Profile information for: {}", filename)?;
     writeln!(human_readable, "Version: {}", profile.version())?;
     writeln!(human_readable, "Device Class: {:?}", profile.device_class())?;
     writeln!(human_readable, "Color Space: {:?}", profile.color_space())?;
     writeln!(human_readable, "PCS: {:?}", profile.pcs())?;
+    writeln!(
+        human_readable,
+        "Rendering Intent: {:?}",
+        profile.header_rendering_intent()
+    )?;
     writeln!(human_readable, "\nTags:")?;
 
     for tag_signature in profile.tag_signatures() {
