@@ -3,6 +3,7 @@ use std::io::Cursor;
 use js_sys::Uint8Array;
 use png::chunk::ChunkType;
 use png::{Decoder, Encoder};
+use qcms::{CIE_xyY, CIE_xyYTRIPLE, Profile};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -10,15 +11,12 @@ pub fn hdrify_png(original: Uint8Array) -> Result<Uint8Array, String> {
     return hdrify_png_impl(original).map_err(|e| e.to_string());
 
     fn hdrify_png_impl(original: Uint8Array) -> Result<Uint8Array, anyhow::Error> {
-        // Create cursor for reading the input bytes
         let bytes = original.to_vec();
         let mut reader = Cursor::new(&bytes);
 
-        // Decode the PNG
         let decoder = Decoder::new(&mut reader);
         let mut reader = decoder.read_info()?;
 
-        // Get PNG metadata
         let info = reader.info();
         let width = info.width;
         let height = info.height;
@@ -26,18 +24,40 @@ pub fn hdrify_png(original: Uint8Array) -> Result<Uint8Array, String> {
         let bit_depth = info.bit_depth;
         let bytes_per_pixel = color_type.samples() * bit_depth as usize / 8;
 
-        // Allocate buffer for the image data
         let mut buffer = vec![0; height as usize * width as usize * bytes_per_pixel];
 
-        // Read the image data into the buffer
         reader.next_frame(&mut buffer)?;
 
-        // Load the ICC profile
-        // We have two profiles in the workspace: sane.icc and chaos.icc
-        // For an HDR profile, chaos.icc is likely more appropriate as it probably has a wider gamut
-        let icc_profile = include_bytes!("../../chaos.icc").to_vec();
+        let _chaos_icc_profile = include_bytes!("../../chaos.icc");
+        let _sane_icc_profile = include_bytes!("../../sane.icc");
+        let rusty_icc_profile = Profile::new_rgb_with_table(
+            CIE_xyY {
+                x: 0.0,
+                y: 1.0,
+                Y: 0.0,
+            },
+            CIE_xyYTRIPLE {
+                red: CIE_xyY {
+                    x: 0.5,
+                    y: 0.5,
+                    Y: 0.0,
+                },
+                green: CIE_xyY {
+                    x: 0.0,
+                    y: 0.5,
+                    Y: 0.0,
+                },
+                blue: CIE_xyY {
+                    x: 0.0,
+                    y: 0.5,
+                    Y: 0.5,
+                },
+            },
+            &[1],
+        );
 
-        // Create a new PNG encoder with our data
+        let icc_profile = rusty_icc_profile;
+
         let mut output = Vec::new();
         {
             let mut output_cursor = Cursor::new(&mut output);
@@ -50,19 +70,13 @@ pub fn hdrify_png(original: Uint8Array) -> Result<Uint8Array, String> {
             // Write the header
             let mut writer = encoder.write_header()?;
 
-            // Prepare the ICC profile chunk data
-            let chunk_data = create_iccp_chunk_data(&icc_profile)?;
-
-            // Add the ICC profile chunk before writing the image data
-            // The "iCCP" chunk type is used for embedding ICC profiles in PNG images
-            let iccp_type = ChunkType([b'i', b'C', b'C', b'P']);
-            writer.write_chunk(iccp_type, &chunk_data)?;
+            let iccp_type = ChunkType(*b"iCCP");
+            writer.write_chunk(iccp_type, &create_iccp_chunk_data(&icc_profile)?)?;
 
             // Write the image data
             writer.write_image_data(&buffer)?;
         }
 
-        // Copy the output to a Uint8Array to return to JavaScript
         let result = Uint8Array::new_with_length(output.len().try_into()?);
         result.copy_from(&output);
 
