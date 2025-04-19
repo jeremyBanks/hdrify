@@ -12,7 +12,7 @@ fn main() -> Result<(), Error> {
         TagSignature::LuminanceTag,
         Tag::CIEXYZ(&CIEXYZ {
             X: 0.0,
-            Y: 32_767.0,
+            Y: 10_000.0,
             Z: 0.0,
         }),
     );
@@ -20,7 +20,12 @@ fn main() -> Result<(), Error> {
     profile.set_version(0.1);
     profile.remove_tag(TagSignature::CopyrightTag);
     profile.remove_tag(TagSignature::ProfileDescriptionTag);
-    profile.remove_tag(TagSignature::CicpTag);
+    // This CICP tag seems to be the one that makes the difference, but the
+    // library we're using doesn't seem to understand its contents...
+    // This looks like it's a bug that's been fixed upstream, but probably not
+    // yet in the library we're using -- bummer!
+    // https://github.com/mm2/Little-CMS/issues/439#issuecomment-2698663595
+    // profile.remove_tag(TagSignature::CicpTag);
 
     let bytes = profile.icc()?;
     fs::write("../rusty.icc", bytes)?;

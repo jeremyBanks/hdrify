@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use js_sys::Uint8Array;
-use png::chunk::ChunkType;
+use png::chunk::{iCCP, ChunkType};
 use png::Encoder;
 use wasm_bindgen::prelude::*;
 
@@ -32,7 +32,7 @@ pub fn hdrify_image_as_png(original: Uint8Array) -> Result<Uint8Array, String> {
 
             let mut writer = encoder.write_header()?;
 
-            writer.write_chunk(ChunkType(*b"iCCP"), &create_iccp_chunk_data(&icc_profile)?)?;
+            writer.write_chunk(iCCP, &create_iccp_chunk_data(&icc_profile)?)?;
 
             writer.write_image_data(&rgba)?;
         }
