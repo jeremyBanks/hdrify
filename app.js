@@ -1,7 +1,7 @@
 import * as ImageMagick from 'https://esm.run/@imagemagick/magick-wasm';
 
-import { hdrify_png, instantiate as instantiate_wasm } from "./build/hdrify_rusty.generated.js";
-instantiate_wasm();
+import * as hdrify_rusty from "./build/hdrify_rusty.generated.js";
+const { hdrify_image_as_png } = hdrify_rusty.instantiate();
 
 // DOM Elements
 const elements = {
@@ -143,7 +143,7 @@ const ImageProcessor = {
       const mode = this.getSelectedMode();
 
       if (mode === 'rusty'){
-        const outputData = hdrify_png(inputImageData);
+        const outputData = hdrify_image_as_png(inputImageData);
 
         const blob = new Blob([outputData], { type: 'image/png' });
         const url = URL.createObjectURL(blob);
