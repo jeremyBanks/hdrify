@@ -11,6 +11,8 @@ pub fn hdrify_png(original: Uint8Array) -> Result<Uint8Array, String> {
     return hdrify_png_impl(original).map_err(|e| e.to_string());
 
     fn hdrify_png_impl(original: Uint8Array) -> Result<Uint8Array, anyhow::Error> {
+        // TODO: use image crate to convert non-PNGs into PNGs
+
         let bytes = original.to_vec();
         let mut reader = Cursor::new(&bytes);
 
