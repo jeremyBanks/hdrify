@@ -7,13 +7,16 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+# exact version required by jsr:@deno/wasmbuild@0.17.3
+wasm-bindgen = "=0.2.92"
+
 anyhow = "1.0.98"
 image = { version = "0.25.6", default-features = false, features = [
-    "png",
-    "jpeg",
-    "webp",
     "avif",
+    "gif",
+    "jpeg",
+    "png",
+    "webp",
 ] }
 js-sys = "0.3"
 png = "0.17.16"
-wasm-bindgen = "=0.2.92"

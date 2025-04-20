@@ -1,6 +1,6 @@
-use std::io::Cursor;
+use std::{error::Error, io::Cursor};
 
-use image::Rgba;
+use image::{DynamicImage, Rgba};
 use js_sys::Uint8Array;
 use png::{chunk::cICP, Encoder};
 use wasm_bindgen::prelude::*;
@@ -10,20 +10,24 @@ pub fn hdrify_image_as_png(
     original: Uint8Array,
     mode: Option<String>,
 ) -> Result<Uint8Array, String> {
+    // Convert input JavaScript Uint8Array to Vec<u8>.
     let original_bytes = original.to_vec();
 
-    let mode = match mode {
-        Some(mode) => match mode.as_str() {
-            "chaos" => HdrifyMode::Chaos,
-            "sane" => HdrifyMode::Sane,
-            _ => return Err(format!("Unknown mode: {mode}")),
+    // HDRify it, producing bytes of an HDR PNG image.
+    let result_bytes = hdrify_image_as_png_impl(
+        &original_bytes,
+        match mode {
+            Some(mode) => match mode.as_str() {
+                "chaos" => HdrifyMode::Chaos,
+                "sane" => HdrifyMode::Sane,
+                _ => return Err(format!("Unknown mode: {mode}")),
+            },
+            None => HdrifyMode::default(),
         },
-        None => HdrifyMode::default(),
-    };
+    )
+    .map_err(|error| format!("{error:#?}"))?;
 
-    let result_bytes = hdrify_image_as_png_impl(&original_bytes, mode)
-        .map_err(|error| format!("{:#?}", anyhow::Error::from(error)))?;
-
+    // Convert result Vec<u8> to JavaScript Uint8Array.
     let result = Uint8Array::new_with_length(
         result_bytes
             .len()
@@ -42,32 +46,30 @@ enum HdrifyMode {
     Sane,
 }
 
-fn hdrify_image_as_png_impl(original: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, anyhow::Error> {
+fn hdrify_image_as_png_impl(original: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, Box<dyn Error>> {
+    // Load any supported image (see `image` crate features defined in ./Cargo.toml).
     let generic = image::load_from_memory(&original)?;
 
-    let mut rgba16 = generic.to_rgba16();
-    let (width, height) = rgba16.dimensions();
+    // Convert to precise and convenient f32 RGBA for editing
+    let mut rgba_f32 = generic.to_rgba32f();
+    let (width, height) = rgba_f32.dimensions();
 
+    // Apply mode-specific effects
     if mode == HdrifyMode::Chaos {
-        rgba16.pixels_mut().for_each(|pixel| {
-            let [r, g, b, a] = pixel.0;
-
-            fn multiply(value: u16) -> u16 {
-                (value as f64 * 1.5).clamp(0.0, u16::MAX as f64) as u16
-            }
-
-            fn exponentiate(value: u16) -> u16 {
-                ((value as f64 / u16::MAX as f64).powf(0.9) * (u16::MAX as f64)) as u16
-            }
+        rgba_f32.pixels_mut().for_each(|pixel| {
+            let Rgba([r, g, b, a]) = *pixel;
 
             *pixel = Rgba([
-                exponentiate(multiply(r)),
-                exponentiate(multiply(g)),
-                exponentiate(multiply(b)),
+                (r * 1.5).powf(0.9).clamp(0.0, 1.0),
+                (g * 1.5).powf(0.9).clamp(0.0, 1.0),
+                (b * 1.5).powf(0.9).clamp(0.0, 1.0),
                 a,
             ]);
         });
     }
+
+    // Convert to u16 RGBA for PNG encoding
+    let rgb_u16: image::ImageBuffer<Rgba<u16>, Vec<u16>> = DynamicImage::from(rgba_f32).to_rgba16();
 
     let mut result = Vec::new();
 
@@ -95,9 +97,9 @@ fn hdrify_image_as_png_impl(original: &[u8], mode: HdrifyMode) -> Result<Vec<u8>
         )?;
 
         writer.write_image_data(
-            rgba16
-                .to_vec()
+            rgb_u16
                 .iter()
+                // ensure multi-byte values are in big-endian order
                 .flat_map(|value| value.to_be_bytes())
                 .collect::<Vec<u8>>()
                 .as_ref(),

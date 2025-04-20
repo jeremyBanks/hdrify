@@ -6,7 +6,7 @@
 		"ghcr.io/devcontainers-community/features/llvm": {}
 	},
 
-	"forwardPorts": [8344],
+	"forwardPorts": [8000],
 
 	"customizations": {
 		"vscode": {
