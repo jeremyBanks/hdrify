@@ -1,12 +1,12 @@
 # HDRify
 
-A web application that applies HDR-like effects to images using WebAssembly and ImageMagick.
+A web application that applies HDR-like effects to images using WebAssembly and Rust.
 
 ## About
 
 HDRify allows you to apply custom color profiles to images to give them an HDR-like appearance. This tool is inspired by the blog post [HDR-Infused Emoji](https://sharpletters.net/2025/04/16/hdr-emoji/) by Corry Haines.
 
-The application uses [@imagemagick/magick-wasm](https://github.com/dlemstra/magick-wasm), a WebAssembly implementation of ImageMagick to process images directly in the browser without requiring server-side processing.
+The application uses the Rust `image` and `png` crates compiled to WebAssembly to process images directly in the browser without requiring server-side processing.
 
 ## Features
 
@@ -25,9 +25,30 @@ The application uses [@imagemagick/magick-wasm](https://github.com/dlemstra/magi
 3. Click "Process Image" to apply the selected HDR effect
 4. View the result and download the processed image
 
+## Rebuilding the WebAssembly Module
+
+If you make changes you the Rust code in `hdrify_rusty/`, you can rebuild the
+WASM bundle using by running:
+
+```bash
+deno task build
+```
+
+This requires [Rust](https://rust-lang.org/) and [Deno](https://deno.com/).
+
 ## Running Locally
 
 Due to browser security restrictions, you need to serve the application from a web server rather than opening the HTML file directly. Here are a few simple ways to run it locally (all examples bind to localhost only for security):
+
+### Using Deno
+
+If you have Deno installed, you can start a simple HTTP server with `deno task start` or:
+
+```bash
+deno run --allow-net --allow-read jsr:@std/http/file-server --host=127.0.0.1 --port 8000
+```
+
+Then visit `http://localhost:8000` in your browser.
 
 ### Using Ruby
 
@@ -79,14 +100,10 @@ Then visit `http://localhost:8000` in your browser.
 
 ## License
 
-This project is dual-licensed:
-- Original code is licensed under the MIT License
-- The project includes [@imagemagick/magick-wasm](https://github.com/dlemstra/magick-wasm) which is licensed under the Apache-2.0 License
-
-When using or modifying this project, please adhere to both license requirements for the respective components.
+Original code is licensed under the MIT License.
 
 ## Credits
 
 - Created by Cristian Rivera
 - Inspired by [HDR-Infused Emoji](https://sharpletters.net/2025/04/16/hdr-emoji/) by Corry Haines
-- Uses [magick-wasm](https://github.com/dlemstra/magick-wasm) (Apache-2.0 License)
+- Contributions by Jeremy Banks
