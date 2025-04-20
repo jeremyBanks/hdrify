@@ -1,66 +1,108 @@
 use std::io::Cursor;
 
+use image::Rgba;
 use js_sys::Uint8Array;
-use png::chunk::{iCCP, ChunkType};
-use png::Encoder;
+use png::{chunk::cICP, Encoder};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub fn hdrify_image_as_png(original: Uint8Array) -> Result<Uint8Array, String> {
-    return hdrify_image_as_png_impl(original).map_err(|e| e.to_string());
+pub fn hdrify_image_as_png(
+    original: Uint8Array,
+    mode: Option<String>,
+) -> Result<Uint8Array, String> {
+    let original_bytes = original.to_vec();
 
-    fn hdrify_image_as_png_impl(original: Uint8Array) -> Result<Uint8Array, anyhow::Error> {
-        let original_bytes = original.to_vec();
-        let generic = image::load_from_memory(&original_bytes)?;
+    let mode = match mode {
+        Some(mode) => match mode.as_str() {
+            "chaos" => HdrifyMode::Chaos,
+            "sane" => HdrifyMode::Sane,
+            _ => return Err(format!("Unknown mode: {mode}")),
+        },
+        None => HdrifyMode::default(),
+    };
 
-        let rgba = generic.to_rgba8();
-        let (width, height) = rgba.dimensions();
+    let result_bytes = hdrify_image_as_png_impl(&original_bytes, mode)
+        .map_err(|error| format!("{:#?}", anyhow::Error::from(error)))?;
 
-        let _chaos_icc_profile = include_bytes!("../../chaos.icc");
-        let _sane_icc_profile = include_bytes!("../../sane.icc");
-        let rusty_icc_profile = include_bytes!("../../rusty.icc");
+    let result = Uint8Array::new_with_length(
+        result_bytes
+            .len()
+            .try_into()
+            .expect("image should not be larger than 4GiB"),
+    );
+    result.copy_from(&result_bytes);
 
-        let icc_profile = rusty_icc_profile.to_vec();
+    Ok(result)
+}
 
-        let mut output = Vec::new();
-        {
-            let mut output_cursor = Cursor::new(&mut output);
-            let mut encoder = Encoder::new(&mut output_cursor, width, height);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+enum HdrifyMode {
+    Chaos,
+    #[default]
+    Sane,
+}
 
-            encoder.set_color(png::ColorType::Rgba);
-            encoder.set_depth(png::BitDepth::Eight);
+fn hdrify_image_as_png_impl(original: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, anyhow::Error> {
+    let generic = image::load_from_memory(&original)?;
 
-            let mut writer = encoder.write_header()?;
+    let mut rgba16 = generic.to_rgba16();
+    let (width, height) = rgba16.dimensions();
 
-            writer.write_chunk(iCCP, &create_iccp_chunk_data(&icc_profile)?)?;
+    if mode == HdrifyMode::Chaos {
+        rgba16.pixels_mut().for_each(|pixel| {
+            let [r, g, b, a] = pixel.0;
 
-            writer.write_image_data(&rgba)?;
-        }
+            fn multiply(value: u16) -> u16 {
+                (value as f64 * 1.5).clamp(0.0, u16::MAX as f64) as u16
+            }
 
-        let result = Uint8Array::new_with_length(output.len().try_into()?);
-        result.copy_from(&output);
+            fn exponentiate(value: u16) -> u16 {
+                ((value as f64 / u16::MAX as f64).powf(0.9) * (u16::MAX as f64)) as u16
+            }
 
-        Ok(result)
+            *pixel = Rgba([
+                exponentiate(multiply(r)),
+                exponentiate(multiply(g)),
+                exponentiate(multiply(b)),
+                a,
+            ]);
+        });
     }
 
-    fn create_iccp_chunk_data(icc_data: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
-        // Profile name: "ICC Profile" + null terminator
-        let mut chunk_data = b"ICC Profile\0".to_vec();
+    let mut result = Vec::new();
 
-        // Compression method: 0 (deflate/zlib)
-        chunk_data.push(0);
+    {
+        let mut result_cursor = Cursor::new(&mut result);
+        let mut encoder = Encoder::new(&mut result_cursor, width, height);
 
-        let mut compressed_data = Vec::new();
-        {
-            let mut compressor = flate2::write::ZlibEncoder::new(
-                &mut compressed_data,
-                flate2::Compression::default(),
-            );
-            std::io::copy(&mut std::io::Cursor::new(icc_data), &mut compressor)?;
-            compressor.finish()?;
-        }
-        chunk_data.extend_from_slice(&compressed_data);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Sixteen);
 
-        Ok(chunk_data)
+        encoder.set_compression(png::Compression::Best);
+        encoder.set_adaptive_filter(png::AdaptiveFilterType::Adaptive);
+
+        let mut writer = encoder.write_header()?;
+
+        // Enable HDR
+        writer.write_chunk(
+            cICP,
+            &[
+                0x09, // Color Primaries: BT.2020
+                0x10, // Transfer Function: PQ
+                0x00, // Matrix: None/Reserved
+                0x01, // Range: Full
+            ],
+        )?;
+
+        writer.write_image_data(
+            rgba16
+                .to_vec()
+                .iter()
+                .flat_map(|value| value.to_be_bytes())
+                .collect::<Vec<u8>>()
+                .as_ref(),
+        )?;
     }
+
+    Ok(result)
 }

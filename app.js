@@ -1,5 +1,3 @@
-import * as ImageMagick from 'https://esm.run/@imagemagick/magick-wasm';
-
 import * as hdrify_rusty from "./build/hdrify_rusty.generated.js";
 const { hdrify_image_as_png } = hdrify_rusty.instantiate();
 
@@ -18,9 +16,6 @@ const elements = {
 
 // App state
 const state = {
-  magickReady: false,
-  chaosProfileData: null,
-  saneProfileData: null,
   selectedFile: null
 };
 
@@ -38,9 +33,6 @@ const UI = {
 
   updateProcessButtonState() {
     elements.processBtn.disabled = !(
-      state.magickReady &&
-      state.chaosProfileData &&
-      state.saneProfileData &&
       elements.fileInput.files.length > 0
     );
   },
@@ -68,39 +60,7 @@ const UI = {
 // Core functionality
 const ImageProcessor = {
   async initialize() {
-    try {
-      await ImageMagick.initializeImageMagick();
-      state.magickReady = true;
-
-      await Promise.all([
-        this.loadIccProfile('chaos', './chaos.icc'),
-        this.loadIccProfile('sane', './sane.icc')
-      ]);
-
-      UI.updateProcessButtonState();
-    } catch (error) {
-      console.error('Initialization error:', error);
-    }
-  },
-
-  async loadIccProfile(type, path) {
-    try {
-      const response = await fetch(path);
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-
-      const arrayBuffer = await response.arrayBuffer();
-      const profileData = new Uint8Array(arrayBuffer);
-
-      if (type === 'chaos') {
-        state.chaosProfileData = profileData;
-      } else if (type === 'sane') {
-        state.saneProfileData = profileData;
-      }
-
-      return true;
-    } catch (error) {
-      throw new Error(`ICC profile error (${type}): ${error.message}`);
-    }
+    UI.updateProcessButtonState();
   },
 
   getSelectedMode() {
@@ -110,21 +70,6 @@ const ImageProcessor = {
       }
     }
     return 'sane'; // Default to sane mode
-  },
-
-  applyChaosMode(image) {
-    image.colorSpace = ImageMagick.ColorSpace.RGB;
-    image.autoGamma();
-    image.evaluate(ImageMagick.EvaluateOperator.Multiply, new ImageMagick.Percentage(1.5));
-    image.evaluate(ImageMagick.EvaluateOperator.Pow, new ImageMagick.Percentage(0.9));
-    image.colorSpace = ImageMagick.ColorSpace.sRGB;
-    image.depth = 16;
-    image.setProfile("icc", state.chaosProfileData);
-  },
-
-  applySaneMode(image) {
-    image.setProfile("icc", state.saneProfileData);
-    image.evaluate(ImageMagick.Channels.RGB, ImageMagick.EvaluateOperator.Log, 30);
   },
 
   async processImage() {
@@ -142,48 +87,14 @@ const ImageProcessor = {
 
       const mode = this.getSelectedMode();
 
-      if (mode === 'rusty'){
-        const outputData = hdrify_image_as_png(inputImageData);
+      const outputData = hdrify_image_as_png(inputImageData, mode);
 
-        const blob = new Blob([outputData], { type: 'image/png' });
-        const url = URL.createObjectURL(blob);
+      const blob = new Blob([outputData], { type: 'image/png' });
+      const url = URL.createObjectURL(blob);
 
-        UI.displayOutputImage(url, file.name, mode);
-        elements.processBtn.disabled = false;
-        UI.hideSpinner();
-
-        return;
-      }
-
-      const readSettings = new ImageMagick.MagickReadSettings();
-
-      // Apply mode-specific settings
-      if (mode === 'chaos') {
-        readSettings.setDefine('quantum:format', 'floating-point');
-      }
-
-      // Process image with ImageMagick
-      ImageMagick.ImageMagick.read(inputImageData, readSettings, (image) => {
-        // Apply mode-specific processing
-        if (mode === 'chaos') {
-          this.applyChaosMode(image);
-        } else {
-          this.applySaneMode(image);
-        }
-
-        // Set output format and generate result
-        image.format = ImageMagick.MagickFormat.Png;
-
-        image.write((outputData) => {
-          const blob = new Blob([outputData], { type: 'image/png' });
-          const url = URL.createObjectURL(blob);
-
-          // Update UI with result
-          UI.displayOutputImage(url, file.name, mode);
-          elements.processBtn.disabled = false;
-          UI.hideSpinner();
-        });
-      });
+      UI.displayOutputImage(url, file.name, mode);
+      elements.processBtn.disabled = false;
+      UI.hideSpinner();
     } catch (error) {
       elements.processBtn.disabled = false;
       UI.hideSpinner();
