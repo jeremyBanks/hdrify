@@ -23,11 +23,11 @@ export function instantiate(): InstantiateResult["exports"];
 export function instantiateWithInstance(): InstantiateResult;
 
 /**
-* @param {Uint8Array} original
+* @param {Uint8Array} image
 * @param {string | undefined} [mode]
 * @returns {Uint8Array}
 */
-export function hdrify_image_as_png(original: Uint8Array, mode?: string): Uint8Array;
+export function hdrify_image_as_png(image: Uint8Array, mode?: string): Uint8Array;
 /**
 * Chroma subsampling format
 */

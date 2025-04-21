@@ -16,5 +16,8 @@ jobs:
     - name: Install Deno
       uses: denoland/setup-deno@v1
 
-    - name: Verify Build
+    - name: Rust Build
+      run: cargo build
+
+    - name: Verify Wasm
       run: deno task build --check
