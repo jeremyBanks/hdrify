@@ -20,3 +20,4 @@ image = { version = "0.25.6", default-features = false, features = [
 ] }
 js-sys = "0.3"
 png = "0.17.16"
+web-sys = "0.3"
