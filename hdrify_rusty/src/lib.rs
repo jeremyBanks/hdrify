@@ -4,7 +4,6 @@ use image::{DynamicImage, Rgba};
 use js_sys::Uint8Array;
 use png::{chunk::cICP, Encoder};
 use wasm_bindgen::prelude::*;
-use web_sys::console;
 
 #[wasm_bindgen]
 pub fn hdrify_image_as_png(
@@ -60,8 +59,8 @@ fn hdrify_image_as_png_impl(original: &[u8], mode: HdrifyMode) -> Result<Vec<u8>
     let (width, height) = generic.dimensions();
     let max_dimension = 1024;
     if width > max_dimension || height > max_dimension {
-        let scale_factor = (max_dimension as f32 / width as f32)
-            .min(max_dimension as f32 / height as f32);
+        let scale_factor =
+            (max_dimension as f32 / width as f32).min(max_dimension as f32 / height as f32);
         generic = generic.resize(
             (width as f32 * scale_factor) as u32,
             (height as f32 * scale_factor) as u32,

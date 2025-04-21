@@ -10,7 +10,6 @@ crate-type = ["cdylib"]
 # exact version required by jsr:@deno/wasmbuild@0.17.3
 wasm-bindgen = "=0.2.92"
 
-anyhow = "1.0.98"
 image = { version = "0.25.6", default-features = false, features = [
     "avif",
     "gif",
