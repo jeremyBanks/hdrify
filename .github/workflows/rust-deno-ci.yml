@@ -1,0 +1,29 @@
+name: Rust and Deno CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+
+    - name: Build with Cargo
+      run: cargo build --release
+
+    - name: Install Deno
+      uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.x
+
+    - name: Run Deno build task
+      run: deno task build
