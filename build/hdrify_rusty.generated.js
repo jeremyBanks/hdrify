@@ -4,7 +4,7 @@
 // deno-fmt-ignore-file
 /// <reference types="./hdrify_rusty.generated.d.ts" />
 
-// source-hash: 582ce3817e608b3d06f91e628a5c43f7705182e7
+// source-hash: cfad5788fc95c6f39090f26160ae03fb7be5f47f
 let wasm;
 
 const heap = new Array(128).fill(undefined);
@@ -127,6 +127,7 @@ function getInt32Memory0() {
   return cachedInt32Memory0;
 }
 /**
+ * Converts an image to a PNG with HDR-like effects.
  * @param {Uint8Array} image
  * @param {string | undefined} [mode]
  * @returns {Uint8Array}

@@ -16,13 +16,13 @@ jobs:
     - name: Install Deno
       uses: denoland/setup-deno@v1
 
-    - name: Rust Build
-      run: cargo build
+    - name: Build Rust Package
+      run: cargo build --locked
 
-    - name: Verify Wasm
-      run: deno task build --check
+    - name: Verify Generated Files
+      run: deno task verify
 
-    - name: Rust Lint
+    - name: Lint
       run: |
         cargo clippy
         cargo fmt --check

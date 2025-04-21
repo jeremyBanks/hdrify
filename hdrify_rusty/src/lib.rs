@@ -2,9 +2,10 @@ use std::{error::Error, io::Cursor};
 
 use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgba};
 use js_sys::Uint8Array;
-use png::{chunk::cICP, Encoder};
+use png::{Encoder, chunk::cICP};
 use wasm_bindgen::prelude::*;
 
+/// Converts an image to a PNG with HDR-like effects.
 #[wasm_bindgen]
 pub fn hdrify_image_as_png(image: Uint8Array, mode: Option<String>) -> Result<Uint8Array, String> {
     // Convert input JavaScript Uint8Array to Vec<u8>.

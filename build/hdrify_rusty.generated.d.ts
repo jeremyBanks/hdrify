@@ -23,6 +23,7 @@ export function instantiate(): InstantiateResult["exports"];
 export function instantiateWithInstance(): InstantiateResult;
 
 /**
+* Converts an image to a PNG with HDR-like effects.
 * @param {Uint8Array} image
 * @param {string | undefined} [mode]
 * @returns {Uint8Array}
