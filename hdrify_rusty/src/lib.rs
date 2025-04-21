@@ -1,21 +1,18 @@
 use std::{error::Error, io::Cursor};
 
-use image::{DynamicImage, Rgba};
+use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgba};
 use js_sys::Uint8Array;
 use png::{chunk::cICP, Encoder};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub fn hdrify_image_as_png(
-    original: Uint8Array,
-    mode: Option<String>,
-) -> Result<Uint8Array, String> {
+pub fn hdrify_image_as_png(image: Uint8Array, mode: Option<String>) -> Result<Uint8Array, String> {
     // Convert input JavaScript Uint8Array to Vec<u8>.
-    let original_bytes = original.to_vec();
+    let image_bytes = image.to_vec();
 
     // HDRify it, producing bytes of an HDR PNG image.
     let result_bytes = hdrify_image_as_png_impl(
-        &original_bytes,
+        &image_bytes,
         match mode {
             Some(mode) => match mode.as_str() {
                 "chaos" => HdrifyMode::Chaos,
@@ -46,35 +43,20 @@ enum HdrifyMode {
     Sane,
 }
 
-fn hdrify_image_as_png_impl(original: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, Box<dyn Error>> {
+fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, Box<dyn Error>> {
     // Load any supported image (see `image` crate features defined in ./Cargo.toml).
-    let mut generic = image::load_from_memory(&original)?;
+    let mut decoder = ImageReader::new(Cursor::new(image))
+        .with_guessed_format()?
+        .into_decoder()?;
+    let orientation = decoder.orientation()?;
+    let image = DynamicImage::from_decoder(decoder)?;
 
-    // Check for orientation metadata and apply it
-    if let Some(orientation) = generic.orientation() {
-        generic.apply_orientation(orientation);
-    }
-
-    // Scale the image down to a maximum of 1024 on either side if it’s larger
-    let (width, height) = generic.dimensions();
-    let max_dimension = 1024;
-    if width > max_dimension || height > max_dimension {
-        let scale_factor =
-            (max_dimension as f32 / width as f32).min(max_dimension as f32 / height as f32);
-        generic = generic.resize(
-            (width as f32 * scale_factor) as u32,
-            (height as f32 * scale_factor) as u32,
-            image::imageops::FilterType::Lanczos3,
-        );
-    }
-
-    // Convert to precise and convenient f32 RGBA for editing
-    let mut rgba_f32 = generic.to_rgba32f();
-    let (width, height) = rgba_f32.dimensions();
+    // Convert to precise and convenient f32 RGBA for editing.
+    let mut image = image.to_rgba32f();
 
     // Apply mode-specific effects
     if mode == HdrifyMode::Chaos {
-        rgba_f32.pixels_mut().for_each(|pixel| {
+        image.pixels_mut().for_each(|pixel| {
             let Rgba([r, g, b, a]) = *pixel;
 
             *pixel = Rgba([
@@ -86,43 +68,55 @@ fn hdrify_image_as_png_impl(original: &[u8], mode: HdrifyMode) -> Result<Vec<u8>
         });
     }
 
-    // Convert to u16 RGBA for PNG encoding
-    let rgb_u16: image::ImageBuffer<Rgba<u16>, Vec<u16>> = DynamicImage::from(rgba_f32).to_rgba16();
+    // Rotate to match orientation of original image.
+    let mut image = DynamicImage::ImageRgba32F(image);
+    image.apply_orientation(orientation);
 
-    let mut result = Vec::new();
-
-    {
-        let mut result_cursor = Cursor::new(&mut result);
-        let mut encoder = Encoder::new(&mut result_cursor, width, height);
-
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Sixteen);
-
-        encoder.set_compression(png::Compression::Best);
-        encoder.set_adaptive_filter(png::AdaptiveFilterType::Adaptive);
-
-        let mut writer = encoder.write_header()?;
-
-        // Enable HDR
-        writer.write_chunk(
-            cICP,
-            &[
-                0x09, // Color Primaries: BT.2020
-                0x10, // Transfer Function: PQ
-                0x00, // Matrix: None/Reserved
-                0x01, // Range: Full
-            ],
-        )?;
-
-        writer.write_image_data(
-            rgb_u16
-                .iter()
-                // ensure multi-byte values are in big-endian order
-                .flat_map(|value| value.to_be_bytes())
-                .collect::<Vec<u8>>()
-                .as_ref(),
-        )?;
+    // Scale the image down to a maximum of 1024 on either side if it’s larger.
+    let max_dimension = 1024;
+    let (width, height) = image.dimensions();
+    if width > max_dimension || height > max_dimension {
+        image = image.resize(
+            max_dimension,
+            max_dimension,
+            image::imageops::FilterType::Lanczos3,
+        );
     }
+    let (width, height) = image.dimensions();
 
-    Ok(result)
+    // Convert to u16 RGBA for PNG encoding
+    let image: image::ImageBuffer<Rgba<u16>, Vec<u16>> = image.to_rgba16();
+
+    let image_data = image
+        .iter()
+        .flat_map(|value| value.to_be_bytes())
+        .collect::<Vec<u8>>();
+
+    let mut image = Vec::new();
+    let mut encoder = Encoder::new(Cursor::new(&mut image), width, height);
+
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Sixteen);
+
+    encoder.set_compression(png::Compression::Best);
+    encoder.set_adaptive_filter(png::AdaptiveFilterType::Adaptive);
+
+    let mut writer = encoder.write_header()?;
+
+    // Enable HDR
+    writer.write_chunk(
+        cICP,
+        &[
+            0x09, // Color Primaries: BT.2020
+            0x10, // Transfer Function: PQ
+            0x00, // Matrix: None/Reserved
+            0x01, // Range: Full
+        ],
+    )?;
+
+    writer.write_image_data(&image_data)?;
+
+    writer.finish()?;
+
+    Ok(image)
 }
