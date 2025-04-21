@@ -4,6 +4,7 @@ use image::{DynamicImage, Rgba};
 use js_sys::Uint8Array;
 use png::{chunk::cICP, Encoder};
 use wasm_bindgen::prelude::*;
+use web_sys::console;
 
 #[wasm_bindgen]
 pub fn hdrify_image_as_png(
@@ -48,7 +49,25 @@ enum HdrifyMode {
 
 fn hdrify_image_as_png_impl(original: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, Box<dyn Error>> {
     // Load any supported image (see `image` crate features defined in ./Cargo.toml).
-    let generic = image::load_from_memory(&original)?;
+    let mut generic = image::load_from_memory(&original)?;
+
+    // Check for orientation metadata and apply it
+    if let Some(orientation) = generic.orientation() {
+        generic.apply_orientation(orientation);
+    }
+
+    // Scale the image down to a maximum of 1024 on either side if it’s larger
+    let (width, height) = generic.dimensions();
+    let max_dimension = 1024;
+    if width > max_dimension || height > max_dimension {
+        let scale_factor = (max_dimension as f32 / width as f32)
+            .min(max_dimension as f32 / height as f32);
+        generic = generic.resize(
+            (width as f32 * scale_factor) as u32,
+            (height as f32 * scale_factor) as u32,
+            image::imageops::FilterType::Lanczos3,
+        );
+    }
 
     // Convert to precise and convenient f32 RGBA for editing
     let mut rgba_f32 = generic.to_rgba32f();
