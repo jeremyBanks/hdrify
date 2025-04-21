@@ -21,3 +21,8 @@ jobs:
 
     - name: Verify Wasm
       run: deno task build --check
+
+    - name: Rust Lint
+      run: |
+        cargo clippy
+        cargo fmt --check
