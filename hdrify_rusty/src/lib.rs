@@ -109,9 +109,9 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
     writer.write_chunk(
         cICP,
         &[
-            0x09, // Color Primaries: BT.2020
-            0x10, // Transfer Function: PQ
-            0x00, // Matrix: None/Reserved
+            0x09, // Color Primaries: BT.2020/BT.2100
+            0x10, // Transfer Function: BT.2100 Perceptual Quantizer
+            0x00, // Matrix: N/A
             0x01, // Range: Full
         ],
     )?;
