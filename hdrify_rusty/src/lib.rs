@@ -105,9 +105,8 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
 
     let mut writer = encoder.write_header()?;
 
-    // Set appropriate HDR encoding based on mode
     match mode {
-        HdrifyMode::BT2100PQ => {
+        HdrifyMode::BT2100PQ | HdrifyMode::Chaos => {
             // BT.2100 PQ (Perceptual Quantizer)
             writer.write_chunk(
                 cICP,
@@ -128,27 +127,6 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
                     0x12, // Transfer Function: BT.2100 Hybrid Log-Gamma (HLG)
                     0x00, // Matrix: N/A
                     0x01, // Range: Full
-                ],
-            )?;
-        }
-        HdrifyMode::Chaos => {
-            // Chaos mode - using PQ with enhanced brightness
-            writer.write_chunk(
-                cICP,
-                &[
-                    0x09, // Color Primaries: BT.2020/BT.2100
-                    0x10, // Transfer Function: BT.2100 Perceptual Quantizer (PQ)
-                    0x00, // Matrix: N/A
-                    0x01, // Range: Full
-                ],
-            )?;
-
-            // Additionally add luminance info for enhanced effect in Chaos mode
-            writer.write_chunk(
-                cLLI,
-                &[
-                    0x00, 0x00, 0x03, 0xE8, // Max content light level: 1000 nits
-                    0x00, 0x00, 0x09, 0xC4, // Max frame average light level: 2500 nits
                 ],
             )?;
         }

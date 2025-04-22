@@ -208,6 +208,22 @@ body.drag-over #drop-indicator {
   height: auto;
 }
 
+/* Make processed images appear clickable */
+.image-container a {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.image-container a:hover {
+  transform: scale(1.02);
+}
+
+.image-container a:active {
+  transform: scale(0.98);
+}
+
 .image-placeholder {
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -218,29 +234,6 @@ body.drag-over #drop-indicator {
   font-weight: 500;
   color: var(--text-color);
   text-transform: capitalize;
-}
-
-/* Download button */
-.download-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: #34a853;
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  margin-top: 0.5rem;
-}
-
-.download-btn:hover {
-  background-color: #2d8d46;
-}
-
-.download-btn svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* Loading spinner */

@@ -5,8 +5,6 @@ const { hdrify_image_as_png } = hdrify_rusty.instantiate();
 const elements = {
   fileInput: document.getElementById('file-input'),
   uploadZone: document.getElementById('upload-zone'),
-  inputPreview: document.getElementById('input-preview'),
-  inputPlaceholder: document.getElementById('input-placeholder'),
   outputsContainer: document.getElementById('outputs-container'),
   dropIndicator: document.getElementById('drop-indicator')
 };
@@ -18,10 +16,10 @@ const state = {
   isProcessing: false
 };
 
-// Available processing modes with their display names
+// Available processing modes with their display names - HLG first
 const MODES = [
-  { id: 'bt2100-pq', name: 'BT2100-PQ' },
   { id: 'bt2100-hlg', name: 'BT2100-HLG' },
+  { id: 'bt2100-pq', name: 'BT2100-PQ' },
   { id: 'chaos', name: 'Chaos Mode' }
 ];
 
@@ -31,21 +29,6 @@ const UI = {
     return '<div class="spinner"></div>';
   },
 
-  createDownloadButton(url, filename, mode) {
-    const downloadBtn = document.createElement('a');
-    downloadBtn.className = 'download-btn';
-    downloadBtn.href = url;
-    downloadBtn.download = `hdrified_${mode}_${filename.split('.')[0]}.png`;
-    downloadBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-      </svg>
-      <span>Download</span>
-    `;
-    return downloadBtn;
-  },
-
   createProcessingOverlay() {
     const overlay = document.createElement('div');
     overlay.className = 'processing-overlay';
@@ -53,27 +36,21 @@ const UI = {
     return overlay;
   },
 
-  displayInputImage(dataUrl) {
-    elements.inputPreview.src = dataUrl;
-    elements.inputPreview.style.display = 'block';
-    elements.inputPlaceholder.style.display = 'none';
-  },
-
-  createOutputPanel(mode) {
+  createOutputPanel(mode, isOriginal = false) {
     const panel = document.createElement('div');
     panel.className = 'image-panel';
-    panel.dataset.mode = mode.id;
+    panel.dataset.mode = isOriginal ? 'original' : mode.id;
     
     const label = document.createElement('div');
     label.className = 'image-label';
-    label.textContent = mode.name;
+    label.textContent = isOriginal ? 'Original' : mode.name;
     
     const container = document.createElement('div');
     container.className = 'image-container';
     
     const placeholder = document.createElement('div');
     placeholder.className = 'image-placeholder';
-    placeholder.textContent = 'Processing...';
+    placeholder.textContent = isOriginal ? 'No image selected' : 'Processing...';
     
     container.appendChild(placeholder);
     panel.appendChild(label);
@@ -82,27 +59,34 @@ const UI = {
     return { panel, container, placeholder };
   },
 
-  displayOutputImage(url, filename, mode, container) {
+  displayImage(url, filename, mode, container, isOriginal = false) {
     // Remove any existing image and placeholder
     const existingImage = container.querySelector('img');
+    const existingLink = container.querySelector('a');
     const placeholder = container.querySelector('.image-placeholder');
     const processingOverlay = container.querySelector('.processing-overlay');
     
     if (existingImage) existingImage.remove();
+    if (existingLink) existingLink.remove();
     if (placeholder) placeholder.remove();
     if (processingOverlay) processingOverlay.remove();
     
-    // Create and add the new image
+    // Create the image element
     const img = document.createElement('img');
     img.src = url;
-    container.appendChild(img);
     
-    // Create and add the download button
-    const panel = container.closest('.image-panel');
-    const existingBtn = panel.querySelector('.download-btn');
-    if (existingBtn) existingBtn.remove();
-    
-    panel.appendChild(this.createDownloadButton(url, filename, mode.id));
+    if (!isOriginal) {
+      // Wrap image in download link for processed images
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `hdrified_${mode.id}_${filename.split('.')[0]}.png`;
+      link.title = `Download ${mode.name} version`;
+      link.appendChild(img);
+      container.appendChild(link);
+    } else {
+      // Original image is not a download link
+      container.appendChild(img);
+    }
   },
 
   clearOutputs() {
@@ -117,6 +101,10 @@ const UI = {
 // Core functionality
 const ImageProcessor = {
   async initialize() {
+    // Set up the original panel first
+    const originalPanel = UI.createOutputPanel(null, true);
+    elements.outputsContainer.appendChild(originalPanel.panel);
+
     // Load default image (xp.png)
     try {
       const response = await fetch('xp.png');
@@ -126,11 +114,11 @@ const ImageProcessor = {
         handleFileSelect(file);
       } else {
         console.error('Could not load default image');
-        elements.inputPlaceholder.textContent = 'Could not load default image';
+        originalPanel.placeholder.textContent = 'Could not load default image';
       }
     } catch (error) {
       console.error('Error loading default image:', error);
-      elements.inputPlaceholder.textContent = 'Could not load default image';
+      originalPanel.placeholder.textContent = 'Could not load default image';
     }
   },
 
@@ -157,6 +145,10 @@ const ImageProcessor = {
     // Clear previous outputs
     UI.clearOutputs();
     
+    // Create the original panel
+    const originalPanel = UI.createOutputPanel(null, true);
+    elements.outputsContainer.appendChild(originalPanel.panel);
+    
     // Create panels for all modes
     const panels = MODES.map(mode => {
       const panel = UI.createOutputPanel(mode);
@@ -164,6 +156,10 @@ const ImageProcessor = {
       panel.container.appendChild(UI.createProcessingOverlay());
       return { mode, panel };
     });
+    
+    // Display the original image
+    const originalUrl = URL.createObjectURL(file);
+    UI.displayImage(originalUrl, file.name, null, originalPanel.container, true);
     
     try {
       // Process all modes in parallel
@@ -177,7 +173,7 @@ const ImageProcessor = {
         const blob = new Blob([result.outputData], { type: 'image/png' });
         const url = URL.createObjectURL(blob);
         
-        UI.displayOutputImage(url, file.name, result.mode, panel.container);
+        UI.displayImage(url, file.name, result.mode, panel.container);
       }
     } catch (error) {
       console.error('Processing error:', error);
@@ -191,15 +187,8 @@ function handleFileSelect(file) {
 
   state.selectedFile = file;
   
-  // Display the input image
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    UI.displayInputImage(e.target.result);
-    
-    // Process immediately when a file is selected
-    ImageProcessor.processImage(file);
-  };
-  reader.readAsDataURL(file);
+  // Process immediately when a file is selected
+  ImageProcessor.processImage(file);
 }
 
 // Event listeners
