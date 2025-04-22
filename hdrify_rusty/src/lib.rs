@@ -2,10 +2,7 @@ use std::{error::Error, io::Cursor};
 
 use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgba, Rgba32FImage};
 use js_sys::Uint8Array;
-use png::{
-    Encoder,
-    chunk::{cICP, cLLI},
-};
+use png::{Encoder, chunk::cICP};
 use wasm_bindgen::prelude::*;
 
 /// Converts an image to a PNG with HDR-like effects.
