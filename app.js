@@ -18,9 +18,9 @@ const state = {
 
 // Available processing modes with their display names - HLG first
 const MODES = [
-  { id: 'bt2100-hlg', name: 'BT2100-HLG' },
-  { id: 'bt2100-pq', name: 'BT2100-PQ' },
-  { id: 'chaos', name: 'Chaos Mode' }
+  { id: 'bt2100-hlg', name: 'Sane', description: 'BT2100-HLG' },
+  { id: 'bt2100-pq', name: 'Intense', description: 'BT2100-PQ' },
+  { id: 'chaos', name: 'Chaos', description: 'Chaos Mode' }
 ];
 
 // UI Helpers
@@ -43,7 +43,14 @@ const UI = {
     
     const label = document.createElement('div');
     label.className = 'image-label';
-    label.textContent = isOriginal ? 'Original' : mode.name;
+    
+    if (isOriginal) {
+      label.textContent = 'Original';
+    } else {
+      label.textContent = mode.name;
+      // Add tooltip with technical description
+      panel.title = mode.description;
+    }
     
     const container = document.createElement('div');
     container.className = 'image-container';
@@ -75,18 +82,17 @@ const UI = {
     const img = document.createElement('img');
     img.src = url;
     
-    if (!isOriginal) {
-      // Wrap image in download link for processed images
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `hdrified_${mode.id}_${filename.split('.')[0]}.png`;
-      link.title = `Download ${mode.name} version`;
-      link.appendChild(img);
-      container.appendChild(link);
-    } else {
-      // Original image is not a download link
-      container.appendChild(img);
-    }
+    // Create a download link for all images including original
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = isOriginal 
+      ? `original_${filename}` 
+      : `hdrified_${mode.id}_${filename.split('.')[0]}.png`;
+    link.title = isOriginal 
+      ? `Download original image` 
+      : `Download ${mode.name} version`;
+    link.appendChild(img);
+    container.appendChild(link);
   },
 
   clearOutputs() {
@@ -101,10 +107,6 @@ const UI = {
 // Core functionality
 const ImageProcessor = {
   async initialize() {
-    // Set up the original panel first
-    const originalPanel = UI.createOutputPanel(null, true);
-    elements.outputsContainer.appendChild(originalPanel.panel);
-
     // Load default image (xp.png)
     try {
       const response = await fetch('xp.png');
@@ -114,11 +116,9 @@ const ImageProcessor = {
         handleFileSelect(file);
       } else {
         console.error('Could not load default image');
-        originalPanel.placeholder.textContent = 'Could not load default image';
       }
     } catch (error) {
       console.error('Error loading default image:', error);
-      originalPanel.placeholder.textContent = 'Could not load default image';
     }
   },
 

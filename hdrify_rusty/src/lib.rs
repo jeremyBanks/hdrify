@@ -81,8 +81,8 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
     if mode == HdrifyMode::Chaos {
         image.pixels_mut().for_each(|pixel| {
             let Rgba([r, g, b, a]) = *pixel;
-
-            *pixel = Rgba([r.powf(0.5), g.powf(0.5), b.powf(0.5), a]);
+            // Use a more aggressive exponent (0.35 instead of 0.5) to make image brighter
+            *pixel = Rgba([r.powf(0.35), g.powf(0.35), b.powf(0.35), a]);
         });
     }
 
