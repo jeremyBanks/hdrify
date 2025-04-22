@@ -23,8 +23,10 @@ import * as hdrify_rusty from "./build/hdrify_rusty.generated.js";
         }, [result.buffer]);
       } catch (error) {
         // Send any errors back to the main thread
+        // Make sure we have a valid id to reference
+        const id = event.data && event.data.id;
         self.postMessage({
-          id,
+          id, // This will be undefined if not provided, which is fine
           type: 'error',
           error: error.message
         });

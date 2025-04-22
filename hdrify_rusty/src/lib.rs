@@ -2,7 +2,10 @@ use std::{error::Error, io::Cursor};
 
 use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgba, Rgba32FImage};
 use js_sys::Uint8Array;
-use png::{Encoder, chunk::cICP};
+use png::{
+    Encoder,
+    chunk::{cICP, cLLI},
+};
 use wasm_bindgen::prelude::*;
 
 /// Converts an image to a PNG with HDR-like effects.
@@ -16,7 +19,7 @@ pub fn hdrify_image_as_png(image: Uint8Array, mode: Option<String>) -> Result<Ui
         &image_bytes,
         match mode {
             Some(mode) => match mode.as_str() {
-                "chaos" => HdrifyMode::Chaos,
+                "bt2100-pq-narrow" => HdrifyMode::BT2100PQNarrow,
                 "bt2100-pq" => HdrifyMode::BT2100PQ,
                 "bt2100-hlg" => HdrifyMode::BT2100HLG,
                 _ => return Err(format!("Unknown mode: {mode}")),
@@ -40,7 +43,7 @@ pub fn hdrify_image_as_png(image: Uint8Array, mode: Option<String>) -> Result<Ui
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 enum HdrifyMode {
-    Chaos,
+    BT2100PQNarrow,
     #[default]
     BT2100PQ,
     BT2100HLG,
@@ -72,16 +75,7 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
     }
     let (width, height) = image.dimensions();
 
-    let mut image = Rgba32FImage::try_from(image)?;
-
-    // Apply mode-specific effects
-    if mode == HdrifyMode::Chaos {
-        image.pixels_mut().for_each(|pixel| {
-            let Rgba([r, g, b, a]) = *pixel;
-            // Use a more aggressive exponent (0.35 instead of 0.5) to make image brighter
-            *pixel = Rgba([r.powf(0.35), g.powf(0.35), b.powf(0.35), a]);
-        });
-    }
+    let image = Rgba32FImage::try_from(image)?;
 
     // Convert to u16 RGBA for PNG encoding
     let image: image::ImageBuffer<Rgba<u16>, Vec<u16>> = DynamicImage::from(image).to_rgba16();
@@ -102,8 +96,9 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
 
     let mut writer = encoder.write_header()?;
 
+    // Set appropriate HDR encoding based on mode
     match mode {
-        HdrifyMode::BT2100PQ | HdrifyMode::Chaos => {
+        HdrifyMode::BT2100PQ => {
             // BT.2100 PQ (Perceptual Quantizer)
             writer.write_chunk(
                 cICP,
@@ -124,6 +119,27 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
                     0x12, // Transfer Function: BT.2100 Hybrid Log-Gamma (HLG)
                     0x00, // Matrix: N/A
                     0x01, // Range: Full
+                ],
+            )?;
+        }
+        HdrifyMode::BT2100PQNarrow => {
+            // BT.2100 PQ Narrow Range
+            writer.write_chunk(
+                cICP,
+                &[
+                    0x09, // Color Primaries: BT.2020/BT.2100
+                    0x10, // Transfer Function: BT.2100 Perceptual Quantizer (PQ)
+                    0x00, // Matrix: N/A
+                    0x00, // Range: Narrow (instead of Full)
+                ],
+            )?;
+
+            // Additionally add luminance info for enhanced effect
+            writer.write_chunk(
+                cLLI,
+                &[
+                    0x00, 0x00, 0x03, 0xE8, // Max content light level: 1000 nits
+                    0x00, 0x00, 0x09, 0xC4, // Max frame average light level: 2500 nits
                 ],
             )?;
         }

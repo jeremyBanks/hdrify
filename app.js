@@ -14,17 +14,18 @@ const state = {
   selectedFile: null,
   processingQueue: [],
   isProcessing: false,
-  worker: null,
-  workerReady: false,
+  workers: [],
+  workerStates: [], // 0 = not ready, 1 = ready and idle, 2 = busy
   requestMap: new Map(),
-  requestCounter: 0
+  requestCounter: 0,
+  nextWorkerIndex: 0
 };
 
 // Available processing modes with their display names - HLG first
 const MODES = [
   { id: 'bt2100-hlg', name: 'BT2100-HLG (Sane)', description: 'BT2100 Hybrid Log-Gamma format' },
   { id: 'bt2100-pq', name: 'BT2100-PQ (Intense)', description: 'BT2100 Perceptual Quantizer format' },
-  { id: 'chaos', name: 'Chaos', description: 'Enhanced brightness with high dynamic range' }
+  { id: 'bt2100-pq-narrow', name: 'BT2100-PQ-Narrow (Chaos)', description: 'BT2100 Perceptual Quantizer with narrow range' }
 ];
 
 // UI Helpers
@@ -89,9 +90,17 @@ const UI = {
     // Create a download link for all images including original
     const link = document.createElement('a');
     link.href = url;
-    link.download = isOriginal 
-      ? `original_${filename}` 
-      : `hdrified_${mode.id}_${filename.split('.')[0]}.png`;
+    
+    // Keep the original filename in the download name
+    const baseFilename = filename.split('.')[0]; 
+    const extension = filename.split('.').pop() || 'png';
+    
+    if (isOriginal) {
+      link.download = filename;
+    } else {
+      link.download = `${baseFilename}-${mode.id}.${extension}`;
+    }
+    
     link.title = isOriginal 
       ? `Download original image` 
       : `Download ${mode.name} version`;
@@ -108,80 +117,139 @@ const UI = {
   }
 };
 
-// Worker Management
-const WorkerManager = {
-  initWorker() {
-    if (state.worker) {
-      state.worker.terminate();
+// Worker Pool Management
+const WorkerPool = {
+  initWorkers() {
+    // Clean up any existing workers
+    this.terminateAllWorkers();
+    
+    // Determine the number of workers to use based on available cores
+    // Use half the available cores, but at least 1 and at most 4
+    const numCores = navigator.hardwareConcurrency || 4;
+    const workerCount = Math.max(1, Math.min(4, Math.floor(numCores / 2)));
+    
+    console.log(`Initializing ${workerCount} workers (${numCores} cores detected)`);
+    
+    // Create the workers
+    for (let i = 0; i < workerCount; i++) {
+      this.createWorker(i);
     }
-
-    state.worker = new Worker('./worker.js', { type: 'module' });
-    state.workerReady = false;
-    state.requestMap.clear();
-
-    state.worker.onmessage = (event) => {
+  },
+  
+  createWorker(index) {
+    const worker = new Worker('./worker.js', { type: 'module' });
+    
+    state.workers[index] = worker;
+    state.workerStates[index] = 0; // Not ready yet
+    
+    worker.onmessage = (event) => {
       const data = event.data;
-
+      
       if (data.type === 'ready') {
-        state.workerReady = true;
-        console.log('Worker is ready');
+        state.workerStates[index] = 1; // Ready and idle
+        console.log(`Worker ${index} is ready`);
         this.processQueue();
       } 
       else if (data.type === 'success') {
         const request = state.requestMap.get(data.id);
         if (request) {
+          state.workerStates[index] = 1; // Mark as idle again
           request.resolve(data.result);
           state.requestMap.delete(data.id);
+          this.processQueue(); // Process next item in queue
         }
       } 
       else if (data.type === 'error') {
         const request = state.requestMap.get(data.id);
         if (request) {
+          state.workerStates[index] = 1; // Mark as idle again
           request.reject(new Error(data.error));
           state.requestMap.delete(data.id);
+          this.processQueue(); // Process next item in queue
         } else {
           console.error('Worker error:', data.error);
         }
       }
     };
-
-    state.worker.onerror = (error) => {
-      console.error('Worker error:', error);
+    
+    worker.onerror = (error) => {
+      console.error(`Worker ${index} error:`, error);
+      state.workerStates[index] = 0; // Mark as not working
     };
+  },
+
+  terminateAllWorkers() {
+    for (let i = 0; i < state.workers.length; i++) {
+      if (state.workers[i]) {
+        state.workers[i].terminate();
+      }
+    }
+    state.workers = [];
+    state.workerStates = [];
+    state.requestMap.clear();
+  },
+
+  // Get the next available worker index
+  getAvailableWorkerIndex() {
+    // First check if there's an idle worker
+    for (let i = 0; i < state.workerStates.length; i++) {
+      if (state.workerStates[i] === 1) {
+        return i;
+      }
+    }
+    return -1; // No workers available
   },
 
   async processWithWorker(imageData, mode) {
     return new Promise((resolve, reject) => {
-      const id = state.requestCounter++;
+      const processTask = () => {
+        const workerIndex = this.getAvailableWorkerIndex();
+        
+        if (workerIndex >= 0) {
+          const id = state.requestCounter++;
+          state.requestMap.set(id, { resolve, reject });
+          state.workerStates[workerIndex] = 2; // Mark as busy
+          
+          // Clone the data to send to the worker
+          const clonedData = new Uint8Array(imageData);
+          
+          state.workers[workerIndex].postMessage({
+            id,
+            imageData: clonedData,
+            mode
+          }, [clonedData.buffer]);
+        } else {
+          // No worker available, add to queue
+          state.processingQueue.push(processTask);
+        }
+      };
       
-      state.requestMap.set(id, { resolve, reject });
-      
-      state.worker.postMessage({
-        id,
-        imageData,
-        mode
-      }, [imageData.buffer]);
+      // Try to process immediately if a worker is available
+      processTask();
     });
   },
 
   processQueue() {
-    if (state.processingQueue.length > 0 && state.workerReady) {
-      const nextItem = state.processingQueue.shift();
-      nextItem();
+    if (state.processingQueue.length > 0) {
+      const workerIndex = this.getAvailableWorkerIndex();
+      if (workerIndex >= 0) {
+        const nextTask = state.processingQueue.shift();
+        nextTask();
+      }
     }
   },
-
-  addToQueue(callback) {
-    state.processingQueue.push(callback);
-    this.processQueue();
+  
+  // Check if all workers are ready
+  areAllWorkersReady() {
+    return state.workerStates.every(state => state === 1);
   }
 };
 
 // Core functionality
 const ImageProcessor = {
   async initialize() {
-    // Initialize the worker
-    WorkerManager.initWorker();
+    // Initialize the worker pool
+    WorkerPool.initWorkers();
     
     // Load default image (xp.png)
     try {
@@ -189,7 +257,8 @@ const ImageProcessor = {
       if (response.ok) {
         const blob = await response.blob();
         const file = new File([blob], 'xp.png', { type: 'image/png' });
-        handleFileSelect(file);
+        // Wait a moment for workers to initialize
+        setTimeout(() => handleFileSelect(file), 500);
       } else {
         console.error('Could not load default image');
       }
@@ -198,14 +267,14 @@ const ImageProcessor = {
     }
   },
 
-  // Process an image with a specific mode using the worker
+  // Process an image with a specific mode using the worker pool
   async processWithMode(file, mode) {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const inputImageData = new Uint8Array(arrayBuffer);
       
-      // Use the worker to process the image
-      const outputData = await WorkerManager.processWithWorker(inputImageData, mode.id);
+      // Use the worker pool to process the image
+      const outputData = await WorkerPool.processWithWorker(inputImageData, mode.id);
       
       return {
         mode,
