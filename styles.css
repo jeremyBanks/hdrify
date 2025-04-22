@@ -32,7 +32,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   color: var(--text-color);
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 20px;
   background-color: var(--bg-color);
@@ -96,7 +96,7 @@ body.drag-over #drop-indicator {
 
 .upload-zone {
   width: 100%;
-  height: 120px;
+  height: 150px;
   border: 2px dashed var(--upload-zone-border);
   border-radius: 4px;
   display: flex;
@@ -132,15 +132,9 @@ body.drag-over #drop-indicator {
 /* Images grid */
 #outputs-container {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   width: 100%;
-}
-
-@media (max-width: 1200px) {
-  #outputs-container {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
 @media (max-width: 900px) {

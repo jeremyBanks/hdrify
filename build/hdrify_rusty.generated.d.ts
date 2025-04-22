@@ -25,10 +25,10 @@ export function instantiateWithInstance(): InstantiateResult;
 /**
 * Converts an image to a PNG with HDR-like effects.
 * @param {Uint8Array} image
-* @param {string | undefined} [mode]
+* @param {string} mode
 * @returns {Uint8Array}
 */
-export function hdrify_image_as_png(image: Uint8Array, mode?: string): Uint8Array;
+export function hdrify_image_as_png(image: Uint8Array, mode: string): Uint8Array;
 /**
 * Chroma subsampling format
 */

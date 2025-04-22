@@ -15,7 +15,6 @@ pub fn hdrify_image_as_png(image: Uint8Array, mode: String) -> Result<Uint8Array
     let result_bytes = hdrify_image_as_png_impl(
         &image_bytes,
         match mode.as_str() {
-            "bt2100-pq-narrow" => HdrifyMode::BT2100PQNarrow,
             "bt2100-pq" => HdrifyMode::BT2100PQ,
             "bt2100-hlg" => HdrifyMode::BT2100HLG,
             _ => return Err(format!("Unknown mode: {mode}")),
@@ -37,7 +36,6 @@ pub fn hdrify_image_as_png(image: Uint8Array, mode: String) -> Result<Uint8Array
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 enum HdrifyMode {
-    BT2100PQNarrow,
     #[default]
     BT2100PQ,
     BT2100HLG,
@@ -54,7 +52,7 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
     // Rotate to match orientation of original image.
     image.apply_orientation(orientation);
 
-    // Scale the image down to a maximum of 1024 on either side if it’s larger.
+    // Scale the image down to a maximum of 1024 on either side if it's larger.
     let max_dimension = 1024;
     let (width, height) = image.dimensions();
     if width > max_dimension || height > max_dimension {
@@ -102,18 +100,6 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
                     0x12, // Transfer Function: BT.2100 Hybrid Log-Gamma (HLG)
                     0x00, // Matrix: N/A
                     0x01, // Range: Full
-                ],
-            )?;
-        }
-        HdrifyMode::BT2100PQNarrow => {
-            // BT.2100 PQ Narrow Range
-            writer.write_chunk(
-                cICP,
-                &[
-                    0x09, // Color Primaries: BT.2020/BT.2100
-                    0x10, // Transfer Function: BT.2100 Perceptual Quantizer (PQ)
-                    0x00, // Matrix: N/A
-                    0x00, // Range: Narrow (instead of Full)
                 ],
             )?;
         }

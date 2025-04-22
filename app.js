@@ -23,9 +23,8 @@ const state = {
 
 // Available processing modes with their display names - HLG first
 const MODES = [
-  { id: 'bt2100-hlg', name: 'BT2100-HLG (Sane)', description: 'BT.2100 Hybrid Log-Gamma Full-Range' },
-  { id: 'bt2100-pq', name: 'BT2100-PQ (Intense)', description: 'BT.2100 Perceptual Quantizer Full-Range' },
-  { id: 'bt2100-pq-narrow', name: 'BT2100-PQ-Narrow (Chaos)', description: 'BT.2100 Perceptual Quantizer Narrow-Range' }
+  { id: 'bt2100-hlg', suffix: "hdr-hlg", name: 'BT.2100 HLG (Sane)', description: 'BT.2100 Hybrid Log-Gamma Full-Range (Sane)' },
+  { id: 'bt2100-pq', suffix: "hdr-pq", name: 'BT.2100 PQ (Chaos)', description: 'BT.2100 Perceptual Quantizer Full-Range (Chaos)' },
 ];
 
 // UI Helpers
@@ -60,27 +59,20 @@ const UI = {
     const container = document.createElement('div');
     container.className = 'image-container';
     
-    const placeholder = document.createElement('div');
-    placeholder.className = 'image-placeholder';
-    placeholder.textContent = isOriginal ? 'No image selected' : 'Processing...';
-    
-    container.appendChild(placeholder);
     panel.appendChild(label);
     panel.appendChild(container);
     
-    return { panel, container, placeholder };
+    return { panel, container };
   },
 
   displayImage(url, filename, mode, container, isOriginal = false) {
-    // Remove any existing image and placeholder
+    // Remove any existing image and spinner
     const existingImage = container.querySelector('img');
     const existingLink = container.querySelector('a');
-    const placeholder = container.querySelector('.image-placeholder');
     const processingOverlay = container.querySelector('.processing-overlay');
     
     if (existingImage) existingImage.remove();
     if (existingLink) existingLink.remove();
-    if (placeholder) placeholder.remove();
     if (processingOverlay) processingOverlay.remove();
     
     // Create the image element
@@ -98,12 +90,12 @@ const UI = {
     if (isOriginal) {
       link.download = filename;
     } else {
-      link.download = `${baseFilename}-${mode.id}.${extension}`;
+      link.download = `${baseFilename}-${mode.suffix}.${extension}`;
     }
     
     link.title = isOriginal 
       ? `Download original image` 
-      : `Download ${mode.name} version`;
+      : `Download as ${mode.description}`;
     link.appendChild(img);
     container.appendChild(link);
   },
