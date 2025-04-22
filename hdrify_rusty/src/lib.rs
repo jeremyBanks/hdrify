@@ -20,7 +20,8 @@ pub fn hdrify_image_as_png(image: Uint8Array, mode: Option<String>) -> Result<Ui
         match mode {
             Some(mode) => match mode.as_str() {
                 "chaos" => HdrifyMode::Chaos,
-                "sane" => HdrifyMode::Sane,
+                "bt2100-pq" => HdrifyMode::BT2100PQ,
+                "bt2100-hlg" => HdrifyMode::BT2100HLG,
                 _ => return Err(format!("Unknown mode: {mode}")),
             },
             None => HdrifyMode::default(),
@@ -44,7 +45,8 @@ pub fn hdrify_image_as_png(image: Uint8Array, mode: Option<String>) -> Result<Ui
 enum HdrifyMode {
     Chaos,
     #[default]
-    Sane,
+    BT2100PQ,
+    BT2100HLG,
 }
 
 fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, Box<dyn Error>> {
@@ -103,16 +105,54 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
 
     let mut writer = encoder.write_header()?;
 
-    // Enable HDR (BT.2100 Perceptual Quantizer Full Range)
-    writer.write_chunk(
-        cICP,
-        &[
-            0x09, // Color Primaries: BT.2020/BT.2100
-            0x10, // Transfer Function: BT.2100 Perceptual Quantizer
-            0x00, // Matrix: N/A
-            0x01, // Range: Full
-        ],
-    )?;
+    // Set appropriate HDR encoding based on mode
+    match mode {
+        HdrifyMode::BT2100PQ => {
+            // BT.2100 PQ (Perceptual Quantizer)
+            writer.write_chunk(
+                cICP,
+                &[
+                    0x09, // Color Primaries: BT.2020/BT.2100
+                    0x10, // Transfer Function: BT.2100 Perceptual Quantizer (PQ)
+                    0x00, // Matrix: N/A
+                    0x01, // Range: Full
+                ],
+            )?;
+        }
+        HdrifyMode::BT2100HLG => {
+            // BT.2100 HLG (Hybrid Log-Gamma)
+            writer.write_chunk(
+                cICP,
+                &[
+                    0x09, // Color Primaries: BT.2020/BT.2100
+                    0x12, // Transfer Function: BT.2100 Hybrid Log-Gamma (HLG)
+                    0x00, // Matrix: N/A
+                    0x01, // Range: Full
+                ],
+            )?;
+        }
+        HdrifyMode::Chaos => {
+            // Chaos mode - using PQ with enhanced brightness
+            writer.write_chunk(
+                cICP,
+                &[
+                    0x09, // Color Primaries: BT.2020/BT.2100
+                    0x10, // Transfer Function: BT.2100 Perceptual Quantizer (PQ)
+                    0x00, // Matrix: N/A
+                    0x01, // Range: Full
+                ],
+            )?;
+
+            // Additionally add luminance info for enhanced effect in Chaos mode
+            writer.write_chunk(
+                cLLI,
+                &[
+                    0x00, 0x00, 0x03, 0xE8, // Max content light level: 1000 nits
+                    0x00, 0x00, 0x09, 0xC4, // Max frame average light level: 2500 nits
+                ],
+            )?;
+        }
+    }
 
     writer.write_image_data(&image_data)?;
 

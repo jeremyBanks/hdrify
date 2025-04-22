@@ -1,15 +1,45 @@
+:root {
+  --bg-color: #f9f9f9;
+  --container-bg: white;
+  --text-color: #333;
+  --text-secondary: #666;
+  --border-color: #e0e0e0;
+  --upload-zone-bg: #f9f9f9;
+  --upload-zone-border: #ccc;
+  --upload-zone-hover-border: #666;
+  --upload-zone-hover-bg: #f5f5f5;
+  --image-container-bg: #f0f0f0;
+  --drop-indicator-bg: rgba(66, 133, 244, 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #121212;
+    --container-bg: #1e1e1e;
+    --text-color: #e0e0e0;
+    --text-secondary: #aaaaaa;
+    --border-color: #333;
+    --upload-zone-bg: #2a2a2a;
+    --upload-zone-border: #444;
+    --upload-zone-hover-border: #777;
+    --upload-zone-hover-bg: #2f2f2f;
+    --image-container-bg: #2a2a2a;
+    --drop-indicator-bg: rgba(66, 133, 244, 0.6);
+  }
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
-  color: #333;
+  color: var(--text-color);
   max-width: 900px;
   margin: 0 auto;
   padding: 20px;
-  background-color: #f9f9f9;
+  background-color: var(--bg-color);
 }
 
 body.drag-over {
-  background-color: #e8f0fe;
+  background-color: var(--bg-color);
 }
 
 h1 {
@@ -22,10 +52,10 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  background: white;
+  background: var(--container-bg);
   border-radius: 4px;
   padding: 1.5rem;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -36,7 +66,7 @@ h1 {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(66, 133, 244, 0.4);
+  background-color: var(--drop-indicator-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,7 +114,7 @@ body.drag-over #drop-indicator {
   width: 100%;
   max-width: 500px;
   height: 120px;
-  border: 2px dashed #ccc;
+  border: 2px dashed var(--upload-zone-border);
   border-radius: 4px;
   display: flex;
   flex-direction: column;
@@ -92,24 +122,24 @@ body.drag-over #drop-indicator {
   justify-content: center;
   cursor: pointer;
   transition: border-color 0.2s, background-color 0.2s;
-  background-color: #f9f9f9;
+  background-color: var(--upload-zone-bg);
 }
 
 .upload-zone:hover {
-  border-color: #666;
-  background-color: #f5f5f5;
+  border-color: var(--upload-zone-hover-border);
+  background-color: var(--upload-zone-hover-bg);
 }
 
 .upload-zone svg {
   width: 36px;
   height: 36px;
   margin-bottom: 8px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .upload-zone p {
   margin: 0;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .upload-zone input {
@@ -166,11 +196,11 @@ body.drag-over #drop-indicator {
   min-height: 200px;
   border-radius: 4px;
   overflow: hidden;
-  background-color: #f0f0f0;
+  background-color: var(--image-container-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
 }
 
 .image-container img {
@@ -179,14 +209,14 @@ body.drag-over #drop-indicator {
 }
 
 .image-placeholder {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   text-align: center;
 }
 
 .image-label {
   font-weight: 500;
-  color: #333;
+  color: var(--text-color);
   text-transform: capitalize;
 }
 
@@ -232,12 +262,13 @@ body.drag-over #drop-indicator {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 10;
+  color: white;
 }
 
 .processing-overlay .spinner {
@@ -259,7 +290,7 @@ body.drag-over #drop-indicator {
   margin-top: 20px;
   text-align: center;
   font-size: 0.9rem;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .footer a {

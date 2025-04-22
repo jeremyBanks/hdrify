@@ -8,7 +8,6 @@ const elements = {
   inputPreview: document.getElementById('input-preview'),
   inputPlaceholder: document.getElementById('input-placeholder'),
   outputsContainer: document.getElementById('outputs-container'),
-  modeRadios: document.querySelectorAll('input[name="mode"]'),
   dropIndicator: document.getElementById('drop-indicator')
 };
 
@@ -19,12 +18,12 @@ const state = {
   isProcessing: false
 };
 
-// Available processing modes
-const MODES = {
-  SANE: 'sane',
-  CHAOS: 'chaos',
-  ALL: 'all'
-};
+// Available processing modes with their display names
+const MODES = [
+  { id: 'bt2100-pq', name: 'BT2100-PQ' },
+  { id: 'bt2100-hlg', name: 'BT2100-HLG' },
+  { id: 'chaos', name: 'Chaos Mode' }
+];
 
 // UI Helpers
 const UI = {
@@ -63,11 +62,11 @@ const UI = {
   createOutputPanel(mode) {
     const panel = document.createElement('div');
     panel.className = 'image-panel';
-    panel.dataset.mode = mode;
+    panel.dataset.mode = mode.id;
     
     const label = document.createElement('div');
     label.className = 'image-label';
-    label.textContent = mode === MODES.SANE ? 'Sane Mode' : 'Chaos Mode';
+    label.textContent = mode.name;
     
     const container = document.createElement('div');
     container.className = 'image-container';
@@ -103,7 +102,7 @@ const UI = {
     const existingBtn = panel.querySelector('.download-btn');
     if (existingBtn) existingBtn.remove();
     
-    panel.appendChild(this.createDownloadButton(url, filename, mode));
+    panel.appendChild(this.createDownloadButton(url, filename, mode.id));
   },
 
   clearOutputs() {
@@ -118,16 +117,21 @@ const UI = {
 // Core functionality
 const ImageProcessor = {
   async initialize() {
-    // Nothing to initialize for now
-  },
-
-  getSelectedMode() {
-    for (const radio of elements.modeRadios) {
-      if (radio.checked) {
-        return radio.value;
+    // Load default image (xp.png)
+    try {
+      const response = await fetch('xp.png');
+      if (response.ok) {
+        const blob = await response.blob();
+        const file = new File([blob], 'xp.png', { type: 'image/png' });
+        handleFileSelect(file);
+      } else {
+        console.error('Could not load default image');
+        elements.inputPlaceholder.textContent = 'Could not load default image';
       }
+    } catch (error) {
+      console.error('Error loading default image:', error);
+      elements.inputPlaceholder.textContent = 'Could not load default image';
     }
-    return MODES.SANE; // Default to sane mode
   },
 
   // Process an image with a specific mode
@@ -138,67 +142,45 @@ const ImageProcessor = {
       
       return {
         mode,
-        outputData: hdrify_image_as_png(inputImageData, mode)
+        outputData: hdrify_image_as_png(inputImageData, mode.id)
       };
     } catch (error) {
-      console.error(`Error processing with mode ${mode}:`, error);
+      console.error(`Error processing with mode ${mode.id}:`, error);
       throw error;
     }
   },
 
-  // Process an image based on selected mode (or all modes)
+  // Process an image with all modes
   async processImage(file) {
     if (!file) return;
-    
-    const selectedMode = this.getSelectedMode();
     
     // Clear previous outputs
     UI.clearOutputs();
     
-    if (selectedMode === MODES.ALL) {
-      // Process with both modes
-      const sanePanel = UI.createOutputPanel(MODES.SANE);
-      const chaosPanel = UI.createOutputPanel(MODES.CHAOS);
-      
-      elements.outputsContainer.appendChild(sanePanel.panel);
-      elements.outputsContainer.appendChild(chaosPanel.panel);
-      
-      sanePanel.container.appendChild(UI.createProcessingOverlay());
-      chaosPanel.container.appendChild(UI.createProcessingOverlay());
-
-      try {
-        // Process both modes in parallel
-        const results = await Promise.all([
-          this.processWithMode(file, MODES.SANE),
-          this.processWithMode(file, MODES.CHAOS)
-        ]);
-        
-        // Display results
-        for (const result of results) {
-          const panel = result.mode === MODES.SANE ? sanePanel : chaosPanel;
-          const blob = new Blob([result.outputData], { type: 'image/png' });
-          const url = URL.createObjectURL(blob);
-          
-          UI.displayOutputImage(url, file.name, result.mode, panel.container);
-        }
-      } catch (error) {
-        console.error('Processing error:', error);
-      }
-    } else {
-      // Process with single selected mode
-      const panel = UI.createOutputPanel(selectedMode);
+    // Create panels for all modes
+    const panels = MODES.map(mode => {
+      const panel = UI.createOutputPanel(mode);
       elements.outputsContainer.appendChild(panel.panel);
       panel.container.appendChild(UI.createProcessingOverlay());
+      return { mode, panel };
+    });
+    
+    try {
+      // Process all modes in parallel
+      const results = await Promise.all(
+        panels.map(({ mode }) => this.processWithMode(file, mode))
+      );
       
-      try {
-        const result = await this.processWithMode(file, selectedMode);
+      // Display results
+      for (const result of results) {
+        const panel = panels.find(p => p.mode.id === result.mode.id).panel;
         const blob = new Blob([result.outputData], { type: 'image/png' });
         const url = URL.createObjectURL(blob);
         
-        UI.displayOutputImage(url, file.name, selectedMode, panel.container);
-      } catch (error) {
-        console.error('Processing error:', error);
+        UI.displayOutputImage(url, file.name, result.mode, panel.container);
       }
+    } catch (error) {
+      console.error('Processing error:', error);
     }
   }
 };
@@ -272,15 +254,6 @@ function setupEventListeners() {
       elements.fileInput.files = e.dataTransfer.files;
       handleFileSelect(e.dataTransfer.files[0]);
     }
-  });
-  
-  // Mode change
-  elements.modeRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
-      if (state.selectedFile) {
-        ImageProcessor.processImage(state.selectedFile);
-      }
-    });
   });
 }
 

@@ -16,21 +16,6 @@
 
   <div class="app">
     <div class="controls">
-      <div class="mode-toggle">
-        <label>
-          <input type="radio" name="mode" value="all">
-          All Modes
-        </label>
-        <label>
-          <input type="radio" name="mode" value="sane" checked>
-          Sane Mode
-        </label>
-        <label>
-          <input type="radio" name="mode" value="chaos">
-          Chaos Mode
-        </label>
-      </div>
-
       <div class="upload-zone" id="upload-zone">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -45,7 +30,7 @@
       <div class="image-panel">
         <div class="image-label">Original</div>
         <div class="image-container" id="input-container">
-          <div class="image-placeholder" id="input-placeholder">No image selected</div>
+          <div class="image-placeholder" id="input-placeholder">Loading default image...</div>
           <img id="input-preview" style="display: none">
         </div>
       </div>
