@@ -94,25 +94,6 @@ body.drag-over #drop-indicator {
   gap: 1rem;
 }
 
-.mode-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 1rem;
-}
-
-.mode-toggle label {
-  display: flex;
-  align-items: center;
-  margin-right: 1rem;
-  margin-bottom: 0.5rem;
-  cursor: pointer;
-}
-
-.mode-toggle input[type="radio"] {
-  margin-right: 0.5rem;
-}
-
 .upload-zone {
   width: 100%;
   height: 120px;
@@ -148,33 +129,7 @@ body.drag-over #drop-indicator {
   display: none;
 }
 
-.process-btn {
-  padding: 10px 20px;
-  font-size: 1rem;
-  background-color: #4285f4;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.process-btn:hover {
-  background-color: #3367d6;
-}
-
-.process-btn:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-/* Images section */
-.images-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
+/* Images grid */
 #outputs-container {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

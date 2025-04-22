@@ -13,14 +13,18 @@ const elements = {
 const state = {
   selectedFile: null,
   processingQueue: [],
-  isProcessing: false
+  isProcessing: false,
+  worker: null,
+  workerReady: false,
+  requestMap: new Map(),
+  requestCounter: 0
 };
 
 // Available processing modes with their display names - HLG first
 const MODES = [
-  { id: 'bt2100-hlg', name: 'Sane', description: 'BT2100-HLG' },
-  { id: 'bt2100-pq', name: 'Intense', description: 'BT2100-PQ' },
-  { id: 'chaos', name: 'Chaos', description: 'Chaos Mode' }
+  { id: 'bt2100-hlg', name: 'BT2100-HLG (Sane)', description: 'BT2100 Hybrid Log-Gamma format' },
+  { id: 'bt2100-pq', name: 'BT2100-PQ (Intense)', description: 'BT2100 Perceptual Quantizer format' },
+  { id: 'chaos', name: 'Chaos', description: 'Enhanced brightness with high dynamic range' }
 ];
 
 // UI Helpers
@@ -104,9 +108,81 @@ const UI = {
   }
 };
 
+// Worker Management
+const WorkerManager = {
+  initWorker() {
+    if (state.worker) {
+      state.worker.terminate();
+    }
+
+    state.worker = new Worker('./worker.js', { type: 'module' });
+    state.workerReady = false;
+    state.requestMap.clear();
+
+    state.worker.onmessage = (event) => {
+      const data = event.data;
+
+      if (data.type === 'ready') {
+        state.workerReady = true;
+        console.log('Worker is ready');
+        this.processQueue();
+      } 
+      else if (data.type === 'success') {
+        const request = state.requestMap.get(data.id);
+        if (request) {
+          request.resolve(data.result);
+          state.requestMap.delete(data.id);
+        }
+      } 
+      else if (data.type === 'error') {
+        const request = state.requestMap.get(data.id);
+        if (request) {
+          request.reject(new Error(data.error));
+          state.requestMap.delete(data.id);
+        } else {
+          console.error('Worker error:', data.error);
+        }
+      }
+    };
+
+    state.worker.onerror = (error) => {
+      console.error('Worker error:', error);
+    };
+  },
+
+  async processWithWorker(imageData, mode) {
+    return new Promise((resolve, reject) => {
+      const id = state.requestCounter++;
+      
+      state.requestMap.set(id, { resolve, reject });
+      
+      state.worker.postMessage({
+        id,
+        imageData,
+        mode
+      }, [imageData.buffer]);
+    });
+  },
+
+  processQueue() {
+    if (state.processingQueue.length > 0 && state.workerReady) {
+      const nextItem = state.processingQueue.shift();
+      nextItem();
+    }
+  },
+
+  addToQueue(callback) {
+    state.processingQueue.push(callback);
+    this.processQueue();
+  }
+};
+
 // Core functionality
 const ImageProcessor = {
   async initialize() {
+    // Initialize the worker
+    WorkerManager.initWorker();
+    
     // Load default image (xp.png)
     try {
       const response = await fetch('xp.png');
@@ -122,15 +198,18 @@ const ImageProcessor = {
     }
   },
 
-  // Process an image with a specific mode
+  // Process an image with a specific mode using the worker
   async processWithMode(file, mode) {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const inputImageData = new Uint8Array(arrayBuffer);
       
+      // Use the worker to process the image
+      const outputData = await WorkerManager.processWithWorker(inputImageData, mode.id);
+      
       return {
         mode,
-        outputData: hdrify_image_as_png(inputImageData, mode.id)
+        outputData
       };
     } catch (error) {
       console.error(`Error processing with mode ${mode.id}:`, error);
