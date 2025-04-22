@@ -1,11 +1,8 @@
 use std::{error::Error, io::Cursor};
 
-use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgba, Rgba32FImage};
+use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader};
 use js_sys::Uint8Array;
-use png::{
-    Encoder,
-    chunk::{cICP, cLLI},
-};
+use png::{Encoder, chunk::cICP};
 use wasm_bindgen::prelude::*;
 
 /// Converts an image to a PNG with HDR-like effects.
@@ -55,10 +52,7 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
         .with_guessed_format()?
         .into_decoder()?;
     let orientation = decoder.orientation()?;
-    let image = DynamicImage::from_decoder(decoder)?;
-
-    // Convert to precise and convenient f32 RGBA for editing.
-    let mut image = DynamicImage::from(image.to_rgba32f());
+    let mut image = DynamicImage::from_decoder(decoder)?;
 
     // Rotate to match orientation of original image.
     image.apply_orientation(orientation);
@@ -75,21 +69,13 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
     }
     let (width, height) = image.dimensions();
 
-    let image = Rgba32FImage::try_from(image)?;
-
-    // Convert to u16 RGBA for PNG encoding
-    let image: image::ImageBuffer<Rgba<u16>, Vec<u16>> = DynamicImage::from(image).to_rgba16();
-
-    let image_data = image
-        .iter()
-        .flat_map(|value| value.to_be_bytes())
-        .collect::<Vec<u8>>();
+    let image_data = image.to_rgba8().to_vec();
 
     let mut image = Vec::new();
     let mut encoder = Encoder::new(Cursor::new(&mut image), width, height);
 
     encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Sixteen);
+    encoder.set_depth(png::BitDepth::Eight);
 
     encoder.set_compression(png::Compression::Best);
     encoder.set_adaptive_filter(png::AdaptiveFilterType::Adaptive);
@@ -133,19 +119,10 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
                     0x00, // Range: Narrow (instead of Full)
                 ],
             )?;
-
-            // Additionally add luminance info for enhanced effect
-            writer.write_chunk(
-                cLLI,
-                &[
-                    0x00, 0x00, 0x03, 0xE8, // Max content light level: 1000 nits
-                    0x00, 0x00, 0x09, 0xC4, // Max frame average light level: 2500 nits
-                ],
-            )?;
         }
     }
 
-    writer.write_image_data(&image_data)?;
+    writer.write_image_data(image_data.as_ref())?;
 
     writer.finish()?;
 

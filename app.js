@@ -23,9 +23,9 @@ const state = {
 
 // Available processing modes with their display names - HLG first
 const MODES = [
-  { id: 'bt2100-hlg', name: 'BT2100-HLG (Sane)', description: 'BT2100 Hybrid Log-Gamma format' },
-  { id: 'bt2100-pq', name: 'BT2100-PQ (Intense)', description: 'BT2100 Perceptual Quantizer format' },
-  { id: 'bt2100-pq-narrow', name: 'BT2100-PQ-Narrow (Chaos)', description: 'BT2100 Perceptual Quantizer with narrow range' }
+  { id: 'bt2100-hlg', name: 'BT2100-HLG (Sane)', description: 'BT.2100 Hybrid Log-Gamma Full-Range' },
+  { id: 'bt2100-pq', name: 'BT2100-PQ (Intense)', description: 'BT.2100 Perceptual Quantizer Full-Range' },
+  { id: 'bt2100-pq-narrow', name: 'BT2100-PQ-Narrow (Chaos)', description: 'BT.2100 Perceptual Quantizer Narrow-Range' }
 ];
 
 // UI Helpers
