@@ -1,6 +1,6 @@
 use std::{error::Error, io::Cursor};
 
-use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgba};
+use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgba, Rgba32FImage};
 use js_sys::Uint8Array;
 use png::{Encoder, chunk::cICP};
 use wasm_bindgen::prelude::*;
@@ -53,7 +53,24 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
     let image = DynamicImage::from_decoder(decoder)?;
 
     // Convert to precise and convenient f32 RGBA for editing.
-    let mut image = image.to_rgba32f();
+    let mut image = DynamicImage::from(image.to_rgba32f());
+
+    // Rotate to match orientation of original image.
+    image.apply_orientation(orientation);
+
+    // Scale the image down to a maximum of 1024 on either side if it’s larger.
+    let max_dimension = 1024;
+    let (width, height) = image.dimensions();
+    if width > max_dimension || height > max_dimension {
+        image = image.resize(
+            max_dimension,
+            max_dimension,
+            image::imageops::FilterType::Lanczos3,
+        );
+    }
+    let (width, height) = image.dimensions();
+
+    let mut image = Rgba32FImage::try_from(image)?;
 
     // Apply mode-specific effects
     if mode == HdrifyMode::Chaos {
@@ -69,24 +86,8 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
         });
     }
 
-    // Rotate to match orientation of original image.
-    let mut image = DynamicImage::ImageRgba32F(image);
-    image.apply_orientation(orientation);
-
-    // Scale the image down to a maximum of 1024 on either side if it’s larger.
-    let max_dimension = 1024;
-    let (width, height) = image.dimensions();
-    if width > max_dimension || height > max_dimension {
-        image = image.resize(
-            max_dimension,
-            max_dimension,
-            image::imageops::FilterType::Lanczos3,
-        );
-    }
-    let (width, height) = image.dimensions();
-
     // Convert to u16 RGBA for PNG encoding
-    let image: image::ImageBuffer<Rgba<u16>, Vec<u16>> = image.to_rgba16();
+    let image: image::ImageBuffer<Rgba<u16>, Vec<u16>> = DynamicImage::from(image).to_rgba16();
 
     let image_data = image
         .iter()
