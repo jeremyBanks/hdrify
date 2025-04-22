@@ -10,11 +10,17 @@
 </head>
 
 <body>
+  <div id="drop-indicator">Drop image here</div>
+  
   <h1>HDRify</h1>
 
   <div class="app">
     <div class="controls">
       <div class="mode-toggle">
+        <label>
+          <input type="radio" name="mode" value="all">
+          All Modes
+        </label>
         <label>
           <input type="radio" name="mode" value="sane" checked>
           Sane Mode
@@ -33,13 +39,9 @@
         <p>Select an image or drop it here</p>
         <input type="file" id="file-input" accept="image/*">
       </div>
-
-      <button class="process-btn" id="process-btn" disabled>
-        Process Image
-      </button>
     </div>
 
-    <div class="images">
+    <div class="images-container">
       <div class="image-panel">
         <div class="image-label">Original</div>
         <div class="image-container" id="input-container">
@@ -48,19 +50,8 @@
         </div>
       </div>
 
-      <div class="image-panel">
-        <div class="image-label">Processed</div>
-        <div class="image-container" id="output-container">
-          <div class="image-placeholder" id="output-placeholder">Output will appear here</div>
-          <img id="output-preview" style="display: none">
-        </div>
-        <a href="#" class="download-btn" id="download-btn" style="display: none">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          <span>Download</span>
-        </a>
+      <div id="outputs-container">
+        <!-- Output images will be inserted here dynamically -->
       </div>
     </div>
   </div>
