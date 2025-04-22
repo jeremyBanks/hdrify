@@ -7,21 +7,18 @@ use wasm_bindgen::prelude::*;
 
 /// Converts an image to a PNG with HDR-like effects.
 #[wasm_bindgen]
-pub fn hdrify_image_as_png(image: Uint8Array, mode: Option<String>) -> Result<Uint8Array, String> {
+pub fn hdrify_image_as_png(image: Uint8Array, mode: String) -> Result<Uint8Array, String> {
     // Convert input JavaScript Uint8Array to Vec<u8>.
     let image_bytes = image.to_vec();
 
     // HDRify it, producing bytes of an HDR PNG image.
     let result_bytes = hdrify_image_as_png_impl(
         &image_bytes,
-        match mode {
-            Some(mode) => match mode.as_str() {
-                "bt2100-pq-narrow" => HdrifyMode::BT2100PQNarrow,
-                "bt2100-pq" => HdrifyMode::BT2100PQ,
-                "bt2100-hlg" => HdrifyMode::BT2100HLG,
-                _ => return Err(format!("Unknown mode: {mode}")),
-            },
-            None => HdrifyMode::default(),
+        match mode.as_str() {
+            "bt2100-pq-narrow" => HdrifyMode::BT2100PQNarrow,
+            "bt2100-pq" => HdrifyMode::BT2100PQ,
+            "bt2100-hlg" => HdrifyMode::BT2100HLG,
+            _ => return Err(format!("Unknown mode: {mode}")),
         },
     )
     .map_err(|error| format!("{error:#?}"))?;

@@ -4,7 +4,7 @@
 // deno-fmt-ignore-file
 /// <reference types="./hdrify_rusty.generated.d.ts" />
 
-// source-hash: fccf9ce289b359a3ee86aa93be327a9b1affb93f
+// source-hash: 96703a2b7c83e039c606662b1b37da46a3a3c6e3
 let wasm;
 
 const heap = new Array(128).fill(undefined);
