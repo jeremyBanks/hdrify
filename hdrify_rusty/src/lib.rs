@@ -2,7 +2,10 @@ use std::{error::Error, io::Cursor};
 
 use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgba, Rgba32FImage};
 use js_sys::Uint8Array;
-use png::{Encoder, chunk::cICP};
+use png::{
+    Encoder,
+    chunk::{cICP, cLLI},
+};
 use wasm_bindgen::prelude::*;
 
 /// Converts an image to a PNG with HDR-like effects.
@@ -77,12 +80,7 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
         image.pixels_mut().for_each(|pixel| {
             let Rgba([r, g, b, a]) = *pixel;
 
-            *pixel = Rgba([
-                (r * 1.5).powf(0.9).clamp(0.0, 1.0),
-                (g * 1.5).powf(0.9).clamp(0.0, 1.0),
-                (b * 1.5).powf(0.9).clamp(0.0, 1.0),
-                a,
-            ]);
+            *pixel = Rgba([r.powf(0.5), g.powf(0.5), b.powf(0.5), a]);
         });
     }
 
@@ -105,7 +103,7 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
 
     let mut writer = encoder.write_header()?;
 
-    // Enable HDR
+    // Enable HDR (BT.2100 Perceptual Quantizer Full Range)
     writer.write_chunk(
         cICP,
         &[
@@ -113,6 +111,15 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
             0x10, // Transfer Function: BT.2100 Perceptual Quantizer
             0x00, // Matrix: N/A
             0x01, // Range: Full
+        ],
+    )?;
+
+    // As bright as possible
+    writer.write_chunk(
+        cLLI,
+        &[
+            0x00, 0x00, 0x00, 0xFF, // Max Content Light Level
+            0x00, 0x00, 0x00, 0xFF, // Max Frame Average Light Level
         ],
     )?;
 
