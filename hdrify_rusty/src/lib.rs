@@ -114,15 +114,6 @@ fn hdrify_image_as_png_impl(image: &[u8], mode: HdrifyMode) -> Result<Vec<u8>, B
         ],
     )?;
 
-    // As bright as possible
-    writer.write_chunk(
-        cLLI,
-        &[
-            0x00, 0x00, 0x00, 0xFF, // Max Content Light Level
-            0x00, 0x00, 0x00, 0xFF, // Max Frame Average Light Level
-        ],
-    )?;
-
     writer.write_image_data(&image_data)?;
 
     writer.finish()?;
